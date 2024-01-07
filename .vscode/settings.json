@@ -1,0 +1,31 @@
+{
+	"files.exclude": {
+		"**/composer.lock": true,
+		"**/node_modules/**": true,
+		"**/package-lock.json": true
+	},
+	"search.exclude": {
+		"**/composer.lock": true,
+		"**/node_modules/**": true,
+		"**/package-lock.json": true
+	},
+	"intelephense.files.exclude": [
+		"**/.git/**",
+		"**/node_modules/**",
+		"**/vendor/**/{Test,test,Tests,tests}/**/*Test.php"
+	],
+	"editor.detectIndentation": false,
+	"editor.insertSpaces": false,
+	"files.trimFinalNewlines": true,
+	"files.trimTrailingWhitespace": true,
+	"files.insertFinalNewline": true,
+	"editor.dragAndDrop": false,
+	"notebook.dragAndDropEnabled": false,
+	"files.eol": "\n",
+	"editor.renderWhitespace": "all",
+	"diffEditor.ignoreTrimWhitespace": false,
+	"intelephense.environment.phpVersion": "8.3.0",
+	"[php]": {
+		"editor.formatOnSave": true
+	}
+}
