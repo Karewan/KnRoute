@@ -6,7 +6,7 @@ namespace Karewan\KnRoute\Attributes;
 
 use Attribute;
 
-#[Attribute]
+#[Attribute(Attribute::IS_REPEATABLE | Attribute::TARGET_METHOD)]
 class Delete extends Route
 {
 	/**

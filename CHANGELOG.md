@@ -1,3 +1,7 @@
+v1.0.4 (2024-01-07)
+----------------------------
+* Allowed Route and Middleware attributes to be repeated
+
 v1.0.3 (2024-01-07)
 ----------------------------
 * ### Breaking changes

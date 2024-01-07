@@ -10,7 +10,7 @@ use Karewan\KnRoute\CompiledRoute;
 use Karewan\KnRoute\RoutesCompiler;
 use LogicException;
 
-#[Attribute]
+#[Attribute(Attribute::IS_REPEATABLE | Attribute::TARGET_METHOD)]
 class Route
 {
 	/** @var string[] */

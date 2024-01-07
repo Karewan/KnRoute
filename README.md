@@ -16,6 +16,8 @@ PHP 8.1+
 $ composer require karewan/knroute
 ```
 
+### Usage example
+
 ```php
 declare(strict_types=1);
 
@@ -33,42 +35,62 @@ namespace App\Controllers;
 
 use App\Middlewares\AuthMiddleware;
 use App\Middlewares\SecretMiddleware;
-use Karewan\KnRoute\Attributes\Controller;
+use App\Middlewares\TestMiddleware;
 use Karewan\KnRoute\Attributes\Delete;
 use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\Attributes\Middleware;
 use Karewan\KnRoute\Attributes\Post;
+use Karewan\KnRoute\Attributes\Route;
 
-// Controller attribute is optional, only used to define class middlewares
-#[Controller([AuthMiddleware::class])]
+#[Middleware(AuthMiddleware::class)]
 class AmdController
 {
+	public function __construct()
+	{
+		echo "AmdController@__construct\n";
+	}
+
 	#[Get('/amd')]
 	public function index(): void
 	{
-		echo "AmdController@index";
+		echo "AmdController@index\n";
 	}
 
-	#[Get('/amd/{id:num}')]
-	public function get(int $test, int $id): void
+	#[Get('/amd/{id:num}'), Middleware(TestMiddleware::class)]
+	public function get(int $id): void
 	{
-		echo "AmdController@get(id={$id},test={$test})";
+		echo "AmdController@get(id={$id})\n";
 	}
 
 	#[Post('/amd/{id:num}')]
 	public function save(int $id): void
 	{
-		echo "AmdController@save(id={$id})";
+		echo "AmdController@save(id={$id})\n";
 	}
 
 	#[Delete('/amd/{id:num}')]
-	public function delete(int $id):void {
-		echo "AmdController@delete(id={$id})";
+	public function delete(int $id): void
+	{
+		echo "AmdController@delete(id={$id})\n";
 	}
 
-	// Optional method middlewares
-	#[Post('/amd/{id:num}/ryzen/{model:alpha}', [SecretMiddleware::class])]
-	public function topSecret(int $id, string $model):void {
-		echo "AmdController@topSecret(id={$id},model={$model})";
+	#[
+		Route(['GET', 'POST', 'PUT'], '/amd/special-page'),
+		Middleware(TestMiddleware::class)
+	]
+	public function specialPage(): void
+	{
+		echo "AmdController@specialPage\n";
+	}
+
+	#[
+		Get('/amd/{id:num}/ryzen/{model:alpha}/{hexRef:hex}'),
+		Middleware(TestMiddleware::class),
+		Middleware(SecretMiddleware::class, ['requireType' => 99])
+	]
+	public function topSecret(int $id, string $model, string $hexRef): void
+	{
+		echo "AmdController@topSecret(id={$id},model={$model},hexRef={$hexRef})\n";
 	}
 }
 ```
@@ -84,10 +106,55 @@ class AuthMiddleware implements IMiddleware
 {
 	public function handle(): void
 	{
-		if (true) {
-			http_response_code(401);
-			die();
-		}
+		echo "AuthMiddleware@handle()\n";
+		// if (true) {
+		// 	http_response_code(401);
+		// 	die();
+		// }
+	}
+}
+```
+
+```php
+declare(strict_types=1);
+
+namespace App\Middlewares;
+
+use Karewan\KnRoute\IMiddleware;
+
+class TestMiddleware implements IMiddleware
+{
+	public function handle(): void
+	{
+		echo "TestMiddleware@handle()\n";
+		// if (true) {
+		// 	http_response_code(401);
+		// 	die();
+		// }
+	}
+}
+```
+
+```php
+declare(strict_types=1);
+
+namespace App\Middlewares;
+
+use Karewan\KnRoute\IMiddleware;
+
+class SecretMiddleware implements IMiddleware
+{
+	public function __construct(private ?int $requireType = null)
+	{
+	}
+
+	public function handle(): void
+	{
+		echo "SecretMiddleware@handle(requireType={$this->requireType})\n";
+		// if (true) {
+		// 	http_response_code(401);
+		// 	die();
+		// }
 	}
 }
 ```
