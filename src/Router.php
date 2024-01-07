@@ -65,10 +65,12 @@ class Router
 
 		$this->compiledRoutes = (new RoutesDumper($routes))->getCompiledRoutes();
 
-		if (!is_null($cacheFile)) file_put_contents(
-			$cacheFile,
-			'<?php return ' . str_replace(' ', '', str_replace(PHP_EOL, '', VarExporter::export($this->compiledRoutes))) . ';'
-		);
+		if (!is_null($cacheFile) && (is_dir($cacheDir = dirname($cacheFile)) || mkdir($cacheDir, 0770, true))) {
+			file_put_contents(
+				$cacheFile,
+				'<?php return ' . str_replace(' ', '', str_replace(PHP_EOL, '', VarExporter::export($this->compiledRoutes))) . ';'
+			);
+		}
 	}
 
 	/**
