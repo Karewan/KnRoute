@@ -26,13 +26,11 @@ class Route
 	 * Route
 	 * @param string[] $methods
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
 	public function __construct(
 		private array $methods,
-		private string $path,
-		private array $middlewares = [],
+		private string $path
 	) {
 	}
 
@@ -62,15 +60,6 @@ class Route
 	public function getPath(): string
 	{
 		return $this->path;
-	}
-
-	/**
-	 * Middlewares
-	 * @return string[]
-	 */
-	public function getMiddlewares(): array
-	{
-		return $this->middlewares;
 	}
 
 	/**

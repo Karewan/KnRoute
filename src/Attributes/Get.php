@@ -12,11 +12,10 @@ class Get extends Route
 	/**
 	 * GET route
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
-	public function __construct(string $path, array $middlewares = [])
+	public function __construct(string $path)
 	{
-		parent::__construct(['GET'], $path, $middlewares);
+		parent::__construct(['GET'], $path);
 	}
 }

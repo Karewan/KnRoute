@@ -12,11 +12,10 @@ class Patch extends Route
 	/**
 	 * PATCH route
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
-	public function __construct(string $path, array $middlewares = [])
+	public function __construct(string $path)
 	{
-		parent::__construct(['PATCH'], $path, $middlewares);
+		parent::__construct(['PATCH'], $path);
 	}
 }

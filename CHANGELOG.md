@@ -1,3 +1,9 @@
+v1.0.3 (2024-01-07)
+----------------------------
+* ### Breaking changes
+	* Removed middlewares array from the Route attribute (and instanceof)
+	* Remplaced Controller attribute by Middleware attribute, can be used from controller and/or method
+
 v1.0.2 (2024-01-07)
 ----------------------------
 * Auto create cache dir if not exist

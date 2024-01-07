@@ -8,7 +8,7 @@ use Brick\VarExporter\VarExporter;
 use DomainException;
 use ErrorException;
 use Exception;
-use Karewan\KnRoute\Attributes\Controller;
+use Karewan\KnRoute\Attributes\Middleware;
 use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
@@ -53,13 +53,11 @@ class Router
 			$controller = new ReflectionClass($class);
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-				$attributes = $method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
-				if (empty($attributes)) continue;
-
-				$route = $attributes[0]->newInstance();
-				$route->setAction([$controller->getName(), $method->getName()]);
-
-				$routes[] = $route;
+				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+					$route = $attribute->newInstance();
+					$route->setAction([$controller->getName(), $method->getName()]);
+					$routes[] = $route;
+				}
 			}
 		}
 
@@ -90,26 +88,23 @@ class Router
 			$method =  array_shift($route);
 
 			// Reflect the controller class
-			$class = new ReflectionClass($controller);
+			$controllerClass = new ReflectionClass($controller);
 
 			// Handle controller middlewares
-			$classAttributes = $class->getAttributes(Controller::class);
-			if (!empty($classAttributes)) {
-				foreach ($classAttributes[0]->getArguments()[0] as $classMiddleware) {
-					(new $classMiddleware)->handle();
-				}
+			foreach ($controllerClass->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $controllerAttribute) {
+				$middlewareInstance = $controllerAttribute->newInstance();
+				$middleware = new ReflectionClass($middlewareInstance->getClass());
+				($middleware->newInstanceArgs($middlewareInstance->getParameters()))->handle();
 			}
 
 			// Instantiate the controller
 			$controllerInstance = new $controller;
 
 			// Handle method middlewares
-			$methodAttributes = $class->getMethod($method)->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
-			if (!empty($methodAttributes)) {
-				$methodArguments = $methodAttributes[0]->getArguments();
-				foreach ($methodArguments[count($methodArguments) > 2 ? 2 : 1] ?? [] as $methodMiddleware) {
-					(new $methodMiddleware)->handle();
-				}
+			foreach ($controllerClass->getMethod($method)->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
+				$middlewareInstance = $methodAttribute->newInstance();
+				$middleware = new ReflectionClass($middlewareInstance->getClass());
+				($middleware->newInstanceArgs($middlewareInstance->getParameters()))->handle();
 			}
 
 			// Call the method

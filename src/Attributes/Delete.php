@@ -12,11 +12,10 @@ class Delete extends Route
 	/**
 	 * DELETE route
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
-	public function __construct(string $path, array $middlewares = [])
+	public function __construct(string $path)
 	{
-		parent::__construct(['DELETE'], $path, $middlewares);
+		parent::__construct(['DELETE'], $path);
 	}
 }

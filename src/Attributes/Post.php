@@ -12,11 +12,10 @@ class Post extends Route
 	/**
 	 * POST route
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
-	public function __construct(string $path, array $middlewares = [])
+	public function __construct(string $path)
 	{
-		parent::__construct(['POST'], $path, $middlewares);
+		parent::__construct(['POST'], $path);
 	}
 }

@@ -12,11 +12,10 @@ class Any extends Route
 	/**
 	 * ANY route => All methods are allowed
 	 * @param string $path
-	 * @param string[] $middlewares
 	 * @return void
 	 */
-	public function __construct(string $path, array $middlewares = [])
+	public function __construct(string $path)
 	{
-		parent::__construct([], $path, $middlewares);
+		parent::__construct([], $path);
 	}
 }
