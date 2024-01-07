@@ -146,6 +146,7 @@ public function topSecret(int $id, string $model):void {
 function getHost(): string;
 function getPath(): string;
 function getMethod(): string;
+function getProtocol():string;
 function getHeader(string $name): ?string;
 function getHeaders(): array;
 function getQueryString(): string;

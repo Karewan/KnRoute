@@ -48,6 +48,15 @@ class HttpUtils
 	}
 
 	/**
+	 * Get protocol
+	 * @return string
+	 */
+	public static function getProtocol(): string
+	{
+		return $_SERVER['SERVER_PROTOCOL'];
+	}
+
+	/**
 	 * Get header
 	 * @param string $name
 	 * @return null|string
