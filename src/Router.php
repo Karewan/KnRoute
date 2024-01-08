@@ -110,7 +110,7 @@ class Router
 			// Call the method
 			call_user_func_array([$controllerInstance, $method], $route);
 		} catch (MethodNotAllowedException $e) {
-			header('Allow:' . join(', ', $e->getAllowedMethods()));
+			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 
 			if ($_SERVER['REQUEST_METHOD'] == 'HEAD') {
 				header('Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
@@ -156,7 +156,6 @@ class Router
 	{
 		$allow = [];
 		$requestMethod = $_SERVER['REQUEST_METHOD'];
-
 
 		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
 			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {

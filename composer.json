@@ -1,8 +1,9 @@
 {
 	"name": "karewan/knroute",
-	"description": "Fast PHP Router",
-	"type": "project",
-	"version": "1.0.4",
+	"description": "Simple and fast PHP 8.1+ router with routes attributes and caching",
+	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri"],
+	"type": "library",
+	"version": "1.0.5",
 	"license": "MIT",
 	"homepage": "https://github.com/Karewan/KnRoute",
 	"authors": [
@@ -12,7 +13,7 @@
 		}
 	],
 	"require": {
-		"php": "^8.1",
+		"php": ">=8.1",
 		"brick/varexporter": "^0.4.0"
 	},
 	"autoload": {

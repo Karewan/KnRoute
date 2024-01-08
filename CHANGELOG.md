@@ -1,3 +1,8 @@
+v1.0.5 (2024-01-08)
+----------------------------
+* Fixed missing space for "Allow" header
+* Added/Fixed informations in "composer.json"
+
 v1.0.4 (2024-01-07)
 ----------------------------
 * Allowed Route and Middleware attributes to be repeated
