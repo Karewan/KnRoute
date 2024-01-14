@@ -1,3 +1,7 @@
+v1.0.7 (2024-01-14)
+----------------------------
+* Added dumpRoutesFromController() method for visualize routes and for debugging purpose
+
 v1.0.6 (2024-01-14)
 ----------------------------
 * Added new methods to the Router class

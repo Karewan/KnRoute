@@ -58,20 +58,7 @@ class Router
 			return;
 		}
 
-		/** @var Route[] */
-		$routes = [];
-
-		foreach ($this->findAllClass($path) as $class) {
-			$controller = new ReflectionClass($class);
-
-			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
-					$route = $attribute->newInstance();
-					$route->setAction([$controller->getName(), $method->getName()]);
-					$routes[] = $route;
-				}
-			}
-		}
+		$routes = $this->findRoutes($path);
 
 		$this->compiledRoutes = (new RoutesDumper($routes))->getCompiledRoutes();
 
@@ -81,6 +68,25 @@ class Router
 				'<?php return ' . str_replace(' ', '', str_replace(PHP_EOL, '', VarExporter::export($this->compiledRoutes))) . ';'
 			);
 		}
+	}
+
+	/**
+	 * Dump routes as string from controllers Route attributes
+	 * @param string $path
+	 * @return string
+	 */
+	public function dumpRoutesFromController(string $path): string
+	{
+		$dump = "--------------\n";
+
+		foreach ($this->findRoutes($path) as $r) {
+			$dump .= "Path: " . $r->getPath() . "\n"
+				. "Methods: " . join(',', $r->getMethods()) . "\n"
+				. 'Action: ' . join('->', $r->getAction())
+				. "\n--------------\n";
+		}
+
+		return $dump;
 	}
 
 	/**
@@ -299,5 +305,29 @@ class Router
 		}
 
 		return $types;
+	}
+
+	/**
+	 * Find routes in path
+	 * @param string $path
+	 * @return Route[]
+	 */
+	private function findRoutes(string $path): array
+	{
+		$routes = [];
+
+		foreach ($this->findAllClass($path) as $class) {
+			$controller = new ReflectionClass($class);
+
+			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+					$route = $attribute->newInstance();
+					$route->setAction([$controller->getName(), $method->getName()]);
+					$routes[] = $route;
+				}
+			}
+		}
+
+		return $routes;
 	}
 }
