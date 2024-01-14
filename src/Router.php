@@ -30,6 +30,18 @@ class Router
 	private array $compiledRoutes = [];
 
 	/**
+	 * The finded controller
+	 * @var null|string
+	 */
+	private ?string $findedController = null;
+
+	/**
+	 * The finded method
+	 * @var null|string
+	 */
+	private ?string $findedMethod = null;
+
+	/**
 	 * Register routes from controllers Route attributes
 	 * @param string $path
 	 * @param null|string $cacheFile
@@ -81,14 +93,14 @@ class Router
 
 		try {
 			// The route
-			$route = $this->match(HttpUtils::getPath());
+			$route = $this->findRoute(HttpUtils::getPath());
 
 			// The controller and method
-			$controller = array_shift($route);
-			$method =  array_shift($route);
+			$this->findedController = array_shift($route);
+			$this->findedMethod =  array_shift($route);
 
 			// Reflect the controller class
-			$controllerClass = new ReflectionClass($controller);
+			$controllerClass = new ReflectionClass($this->findedController);
 
 			// Handle controller middlewares
 			foreach ($controllerClass->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $controllerAttribute) {
@@ -98,17 +110,17 @@ class Router
 			}
 
 			// Instantiate the controller
-			$controllerInstance = new $controller;
+			$controllerInstance = new $this->findedController;
 
 			// Handle method middlewares
-			foreach ($controllerClass->getMethod($method)->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
+			foreach ($controllerClass->getMethod($this->findedMethod)->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
 				$middlewareInstance = $methodAttribute->newInstance();
 				$middleware = new ReflectionClass($middlewareInstance->getClass());
 				($middleware->newInstanceArgs($middlewareInstance->getParameters()))->handle();
 			}
 
 			// Call the method
-			call_user_func_array([$controllerInstance, $method], $route);
+			call_user_func_array([$controllerInstance, $this->findedMethod], $route);
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 
@@ -127,11 +139,29 @@ class Router
 	}
 
 	/**
+	 * Return the finded controller
+	 * @return null|string
+	 */
+	public function getFindedController(): ?string
+	{
+		return $this->findedController;
+	}
+
+	/**
+	 * Return the finded method
+	 * @return null|string
+	 */
+	public function getFindedMethod(): ?string
+	{
+		return $this->findedMethod;
+	}
+
+	/**
 	 * Match pathinfo
 	 * @param string $pathinfo
 	 * @return array
 	 */
-	private function match(string $pathinfo): array
+	private function findRoute(string $pathinfo): array
 	{
 		$allow = [];
 
