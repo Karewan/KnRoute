@@ -1,3 +1,7 @@
+v1.0.8 (2024-01-15)
+----------------------------
+* Nat sort routes path in dumpRoutesFromController() method
+
 v1.0.7 (2024-01-14)
 ----------------------------
 * Added dumpRoutesFromController() method for visualize routes and for debugging purpose

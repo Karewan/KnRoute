@@ -43,7 +43,7 @@ class Router
 
 	/**
 	 * Register routes from controllers Route attributes
-	 * @param string $path
+	 * @param string $controllersPath
 	 * @param null|string $cacheFile
 	 * @return void
 	 * @throws LogicException
@@ -51,14 +51,14 @@ class Router
 	 * @throws ErrorException
 	 * @throws Exception
 	 */
-	public function registerRoutesFromControllers(string $path, ?string $cacheFile)
+	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile)
 	{
 		if (!is_null($cacheFile) && is_file($cacheFile)) {
 			$this->compiledRoutes = require $cacheFile;
 			return;
 		}
 
-		$routes = $this->findRoutes($path);
+		$routes = $this->findRoutesFromControllers($controllersPath);
 
 		$this->compiledRoutes = (new RoutesDumper($routes))->getCompiledRoutes();
 
@@ -72,19 +72,19 @@ class Router
 
 	/**
 	 * Dump routes as string from controllers Route attributes
-	 * @param string $path
+	 * @param string $controllersPath
 	 * @return string
 	 */
-	public function dumpRoutesFromController(string $path): string
+	public function dumpRoutesFromController(string $controllersPath): string
 	{
-		$dump = "--------------\n";
+		$routes = $this->findRoutesFromControllers($controllersPath);
+		usort($routes, fn (Route $a, Route $b): int => strnatcmp($a->getPath(), $b->getPath()));
 
-		foreach ($this->findRoutes($path) as $r) {
-			$dump .= "Path: " . $r->getPath() . "\n"
-				. "Methods: " . join(',', $r->getMethods()) . "\n"
-				. 'Action: ' . join('->', $r->getAction())
-				. "\n--------------\n";
-		}
+		$dump = "--------------\n";
+		foreach ($routes as $r) $dump .= "Path: " . $r->getPath() . "\n"
+			. "Methods: " . join(',', $r->getMethods()) . "\n"
+			. 'Action: ' . join('->', $r->getAction())
+			. "\n--------------\n";
 
 		return $dump;
 	}
@@ -309,14 +309,14 @@ class Router
 
 	/**
 	 * Find routes in path
-	 * @param string $path
+	 * @param string $controllersPath
 	 * @return Route[]
 	 */
-	private function findRoutes(string $path): array
+	private function findRoutesFromControllers(string $controllersPath): array
 	{
 		$routes = [];
 
-		foreach ($this->findAllClass($path) as $class) {
+		foreach ($this->findAllClass($controllersPath) as $class) {
 			$controller = new ReflectionClass($class);
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
