@@ -126,7 +126,7 @@ class Router
 			}
 
 			// Call the method
-			call_user_func_array([$controllerInstance, $this->findedMethod], $route);
+			call_user_func_array([$controllerInstance, $this->findedMethod], array_map(fn (string $p): string => urldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 

@@ -1,3 +1,7 @@
+v1.0.9 (2024-01-17)
+----------------------------
+* Apply urldecode on method arguments
+
 v1.0.8 (2024-01-15)
 ----------------------------
 * Nat sort routes path in dumpRoutesFromController() method
