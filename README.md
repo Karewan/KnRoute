@@ -24,7 +24,10 @@ declare(strict_types=1);
 use Karewan\KnRoute\Router;
 
 $router = new Router();
-$router->registerRoutesFromControllers(__DIR__ . 'App/Controllers', DEBUG ? null : __DIR__ . 'tmp/cache.php');
+$router->registerRoutesFromControllers(
+	__DIR__ . 'App/Controllers',
+	DEBUG ? null : __DIR__ . 'tmp/cache.php'
+);
 $router->run();
 ```
 
