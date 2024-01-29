@@ -1,3 +1,8 @@
+v2.0.0 (2024-01-29)
+----------------------------
+* ### Breaking changes
+	* Changed Middlewares definition logic
+
 v1.0.9 (2024-01-17)
 ----------------------------
 * Apply urldecode on method arguments

@@ -24,7 +24,7 @@ declare(strict_types=1);
 use Karewan\KnRoute\Router;
 
 $router = new Router();
-$router->registerRoutesFromControllers(__DIR__ . 'App/Controllers', __DIR__ . 'tmp/cache.php');
+$router->registerRoutesFromControllers(__DIR__ . 'App/Controllers', DEBUG ? null : __DIR__ . 'tmp/cache.php');
 $router->run();
 ```
 
@@ -38,11 +38,10 @@ use App\Middlewares\SecretMiddleware;
 use App\Middlewares\TestMiddleware;
 use Karewan\KnRoute\Attributes\Delete;
 use Karewan\KnRoute\Attributes\Get;
-use Karewan\KnRoute\Attributes\Middleware;
 use Karewan\KnRoute\Attributes\Post;
 use Karewan\KnRoute\Attributes\Route;
 
-#[Middleware(AuthMiddleware::class)]
+#[AuthMiddleware()]
 class AmdController
 {
 	public function __construct()
@@ -56,7 +55,7 @@ class AmdController
 		echo "AmdController@index\n";
 	}
 
-	#[Get('/amd/{id:num}'), Middleware(TestMiddleware::class)]
+	#[Get('/amd/{id:num}'), TestMiddleware()]
 	public function get(int $id): void
 	{
 		echo "AmdController@get(id={$id})\n";
@@ -76,7 +75,7 @@ class AmdController
 
 	#[
 		Route(['GET', 'POST', 'PUT'], '/amd/special-page'),
-		Middleware(TestMiddleware::class)
+		TestMiddleware()
 	]
 	public function specialPage(): void
 	{
@@ -85,8 +84,8 @@ class AmdController
 
 	#[
 		Get('/amd/{id:num}/ryzen/{model:alpha}/{hexRef:hex}'),
-		Middleware(TestMiddleware::class),
-		Middleware(SecretMiddleware::class, ['requireType' => 99])
+		TestMiddleware(),
+		SecretMiddleware(requireType: 99)
 	]
 	public function topSecret(int $id, string $model, string $hexRef): void
 	{
@@ -100,8 +99,10 @@ declare(strict_types=1);
 
 namespace App\Middlewares;
 
+use Attribute;
 use Karewan\KnRoute\IMiddleware;
 
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
 class AuthMiddleware implements IMiddleware
 {
 	public function handle(): void
@@ -120,8 +121,10 @@ declare(strict_types=1);
 
 namespace App\Middlewares;
 
+use Attribute;
 use Karewan\KnRoute\IMiddleware;
 
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
 class TestMiddleware implements IMiddleware
 {
 	public function handle(): void
@@ -140,8 +143,10 @@ declare(strict_types=1);
 
 namespace App\Middlewares;
 
+use Attribute;
 use Karewan\KnRoute\IMiddleware;
 
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
 class SecretMiddleware implements IMiddleware
 {
 	public function __construct(private ?int $requireType = null)

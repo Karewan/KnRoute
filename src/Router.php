@@ -109,20 +109,16 @@ class Router
 			$controllerClass = new ReflectionClass($this->findedController);
 
 			// Handle controller middlewares
-			foreach ($controllerClass->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $controllerAttribute) {
-				$middlewareInstance = $controllerAttribute->newInstance();
-				$middleware = new ReflectionClass($middlewareInstance->getClass());
-				($middleware->newInstanceArgs($middlewareInstance->getParameters()))->handle();
+			foreach ($controllerClass->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $controllerAttribute) {
+				$controllerAttribute->newInstance()->handle();
 			}
 
 			// Instantiate the controller
 			$controllerInstance = new $this->findedController;
 
 			// Handle method middlewares
-			foreach ($controllerClass->getMethod($this->findedMethod)->getAttributes(Middleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
-				$middlewareInstance = $methodAttribute->newInstance();
-				$middleware = new ReflectionClass($middlewareInstance->getClass());
-				($middleware->newInstanceArgs($middlewareInstance->getParameters()))->handle();
+			foreach ($controllerClass->getMethod($this->findedMethod)->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
+				$methodAttribute->newInstance()->handle();
 			}
 
 			// Call the method
