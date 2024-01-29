@@ -8,7 +8,6 @@ use Brick\VarExporter\VarExporter;
 use DomainException;
 use ErrorException;
 use Exception;
-use Karewan\KnRoute\Attributes\Middleware;
 use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
