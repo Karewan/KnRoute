@@ -1,3 +1,8 @@
+v2.0.1 (2024-11-05)
+----------------------------
+* Removed brick/varexporter dependency replaced with an optimized method
+* Improved dumpRoutesFromController output result
+
 v2.0.0 (2024-01-29)
 ----------------------------
 * ### Breaking changes

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Karewan\KnRoute;
 
-use Brick\VarExporter\VarExporter;
 use DomainException;
 use ErrorException;
 use Exception;
@@ -50,7 +49,7 @@ class Router
 	 * @throws ErrorException
 	 * @throws Exception
 	 */
-	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile)
+	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile): void
 	{
 		if (!is_null($cacheFile) && is_file($cacheFile)) {
 			$this->compiledRoutes = require $cacheFile;
@@ -59,13 +58,10 @@ class Router
 
 		$routes = $this->findRoutesFromControllers($controllersPath);
 
-		$this->compiledRoutes = (new RoutesDumper($routes))->getCompiledRoutes();
+		$this->compiledRoutes = ($routeDumper = new RoutesDumper($routes))->getCompiledRoutes();
 
 		if (!is_null($cacheFile) && (is_dir($cacheDir = dirname($cacheFile)) || mkdir($cacheDir, 0770, true))) {
-			file_put_contents(
-				$cacheFile,
-				'<?php return ' . str_replace(' ', '', str_replace(PHP_EOL, '', VarExporter::export($this->compiledRoutes))) . ';'
-			);
+			file_put_contents($cacheFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';');
 		}
 	}
 
@@ -77,13 +73,22 @@ class Router
 	public function dumpRoutesFromController(string $controllersPath): string
 	{
 		$routes = $this->findRoutesFromControllers($controllersPath);
-		usort($routes, fn (Route $a, Route $b): int => strnatcmp($a->getPath(), $b->getPath()));
 
-		$dump = "--------------\n";
-		foreach ($routes as $r) $dump .= "Path: " . $r->getPath() . "\n"
-			. "Methods: " . join(',', $r->getMethods()) . "\n"
-			. 'Action: ' . join('->', $r->getAction())
-			. "\n--------------\n";
+		$longestPath = 1;
+		usort($routes, function (Route $a, Route $b) use (&$longestPath): int {
+			$longestPath = max($longestPath, strlen($a->getPath()), strlen($b->getPath()));
+			return strnatcmp($a->getPath(), $b->getPath());
+		});
+
+		$dump = '';
+		foreach ($routes as $r) {
+			$dump .= str_pad('[' . (count($r->getMethods()) ? join('|', $r->getMethods()) : '*') . ']', 27, ' ', STR_PAD_RIGHT);
+			$dump .= "\t";
+			$dump .= str_pad($r->getPath(), $longestPath, ' ', STR_PAD_RIGHT);
+			$dump .= "\t";
+			$dump .= join('->', $r->getAction());
+			$dump .= "\n";
+		}
 
 		return $dump;
 	}
@@ -121,7 +126,7 @@ class Router
 			}
 
 			// Call the method
-			call_user_func_array([$controllerInstance, $this->findedMethod], array_map(fn (string $p): string => urldecode($p), $route));
+			call_user_func_array([$controllerInstance, $this->findedMethod], array_map(fn(string $p): string => urldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 
@@ -136,7 +141,7 @@ class Router
 			http_response_code(404);
 		}
 
-		die();
+		die(0);
 	}
 
 	/**

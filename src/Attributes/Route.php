@@ -31,8 +31,7 @@ class Route
 	public function __construct(
 		private array $methods,
 		private string $path
-	) {
-	}
+	) {}
 
 	/**
 	 * Methods

@@ -6,6 +6,4 @@ namespace Karewan\KnRoute\Exceptions;
 
 use RuntimeException;
 
-class ResourceNotFoundException extends RuntimeException
-{
-}
+class ResourceNotFoundException extends RuntimeException {}

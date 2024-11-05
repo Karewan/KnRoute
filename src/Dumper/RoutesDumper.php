@@ -64,6 +64,46 @@ class RoutesDumper
 	}
 
 	/**
+	 * Dump array
+	 * @param array $array
+	 * @param array $path
+	 * @param array $parentIds
+	 * @return string
+	 */
+	public function dumpArray(array $array, array $path = [], array $parentIds = []): string
+	{
+		$result = [];
+		$count = count($array);
+		$isList = array_keys($array) === range(0, $count - 1);
+
+		foreach ($array as $key => $value) {
+			$newPath = $path;
+			$newPath[] = (string) $key;
+
+			switch (gettype($value)) {
+				case 'boolean':
+				case 'integer':
+				case 'double':
+				case 'string':
+					$exported = var_export($value, true);
+					break;
+
+				case 'array':
+					$exported = $this->dumpArray($value, $path, $parentIds);
+					break;
+
+				default:
+					$exported = 'null';
+					break;
+			}
+
+			$result[] = $isList ? $exported : var_export($key, true) . '=>' . $exported;
+		}
+
+		return '[' . implode(',', $result) . ']';
+	}
+
+	/**
 	 * Group static routes
 	 * @return array
 	 */
@@ -189,7 +229,7 @@ class RoutesDumper
 			$state->markTail = 0;
 
 			// if the regex is too large, throw a signaling exception to recompute with smaller chunk size
-			set_error_handler(fn ($type, $message) => throw str_contains($message, $this->signalingException->getMessage()) ? $this->signalingException : new ErrorException($message));
+			set_error_handler(fn($type, $message) => throw str_contains($message, $this->signalingException->getMessage()) ? $this->signalingException : new ErrorException($message));
 			try {
 				preg_match($state->regex, '');
 			} finally {
