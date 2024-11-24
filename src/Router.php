@@ -4,20 +4,15 @@ declare(strict_types=1);
 
 namespace Karewan\KnRoute;
 
-use DomainException;
-use ErrorException;
-use Exception;
 use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
-use LogicException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
-use SplFileInfo;
 
 class Router
 {
@@ -40,65 +35,12 @@ class Router
 	private ?string $findedMethod = null;
 
 	/**
-	 * Register routes from controllers Route attributes
-	 * @param string $controllersPath
-	 * @param null|string $cacheFile
-	 * @return void
-	 * @throws LogicException
-	 * @throws DomainException
-	 * @throws ErrorException
-	 * @throws Exception
-	 */
-	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile): void
-	{
-		if (!is_null($cacheFile) && is_file($cacheFile)) {
-			$this->compiledRoutes = require $cacheFile;
-			return;
-		}
-
-		$routes = $this->findRoutesFromControllers($controllersPath);
-
-		$this->compiledRoutes = ($routeDumper = new RoutesDumper($routes))->getCompiledRoutes();
-
-		if (!is_null($cacheFile) && (is_dir($cacheDir = dirname($cacheFile)) || mkdir($cacheDir, 0770, true))) {
-			file_put_contents($cacheFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';');
-		}
-	}
-
-	/**
-	 * Dump routes as string from controllers Route attributes
-	 * @param string $controllersPath
-	 * @return string
-	 */
-	public function dumpRoutesFromController(string $controllersPath): string
-	{
-		$routes = $this->findRoutesFromControllers($controllersPath);
-
-		$longestPath = 1;
-		usort($routes, function (Route $a, Route $b) use (&$longestPath): int {
-			$longestPath = max($longestPath, strlen($a->getPath()), strlen($b->getPath()));
-			return strnatcmp($a->getPath(), $b->getPath());
-		});
-
-		$dump = '';
-		foreach ($routes as $r) {
-			$dump .= str_pad('[' . (count($r->getMethods()) ? join('|', $r->getMethods()) : '*') . ']', 27, ' ', STR_PAD_RIGHT);
-			$dump .= "\t";
-			$dump .= str_pad($r->getPath(), $longestPath, ' ', STR_PAD_RIGHT);
-			$dump .= "\t";
-			$dump .= join('->', $r->getAction());
-			$dump .= "\n";
-		}
-
-		return $dump;
-	}
-
-	/**
 	 * Run
 	 * @return never
 	 */
 	public function run(): never
 	{
+		// Remove content-type by default (if not output => not content type)
 		header('Content-Type:');
 
 		try {
@@ -141,7 +83,7 @@ class Router
 			http_response_code(404);
 		}
 
-		die(0);
+		die();
 	}
 
 	/**
@@ -163,76 +105,87 @@ class Router
 	}
 
 	/**
-	 * Match pathinfo
-	 * @param string $pathinfo
-	 * @return array
+	 * Register routes from controllers Route attributes
+	 * @param string $controllersPath
+	 * @param null|string $cacheFile
+	 * @return void
 	 */
-	private function findRoute(string $pathinfo): array
+	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile): void
 	{
-		$allow = [];
-
-		if ($ret = $this->doMatch($pathinfo, $allow)) {
-			return $ret;
+		if (!is_null($cacheFile) && is_file($cacheFile)) {
+			$this->compiledRoutes = require $cacheFile;
+			return;
 		}
 
-		if ($allow) {
-			throw new MethodNotAllowedException(array_keys($allow));
-		}
+		$routes = $this->findRoutesFromControllers($controllersPath);
 
-		throw new ResourceNotFoundException(sprintf('No routes found for "%s".', $pathinfo));
+		$this->compiledRoutes = ($routeDumper = new RoutesDumper($routes))->getCompiledRoutes();
+
+		if (!is_null($cacheFile) && (is_dir($cacheDir = dirname($cacheFile)) || mkdir($cacheDir, 0770, true))) {
+			file_put_contents($cacheFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';');
+		}
 	}
 
 	/**
-	 * Do match
-	 * @param string $pathinfo
-	 * @param array $allow
-	 * @return null|array
+	 * Dump routes as string from controllers Route attributes
+	 * @param string $controllersPath
+	 * @return string
 	 */
-	private function doMatch(string $pathinfo, array &$allow = []): ?array
+	public function dumpRoutesFromController(string $controllersPath): string
 	{
-		$allow = [];
-		$requestMethod = $_SERVER['REQUEST_METHOD'];
+		$routes = $this->findRoutesFromControllers($controllersPath);
 
-		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
-			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-				$allow += $requiredMethods;
-				continue;
-			}
+		usort($routes, fn(Route $a, Route $b): int => strnatcmp($a->getPath(), $b->getPath()));
 
-			return $ret;
+		$longestPath = 1;
+		$longestMethods = 3;
+		foreach ($routes as $r) {
+			$longestMethods = max($longestMethods, array_sum(array_map('strlen', $r->getMethods())) + (count($r->getMethods()) - 1) + 2);
+			$longestPath = max($longestPath, strlen($r->getPath()));
 		}
 
-		$matchedPathinfo = $pathinfo;
+		$dump = str_pad('METHOD', $longestMethods + 4, ' ', STR_PAD_RIGHT);
+		$dump .= str_pad('PATH', $longestPath + 4, ' ', STR_PAD_RIGHT);
+		$dump .= "ACTION\n";
 
-		foreach ($this->compiledRoutes[1] as $offset => $regex) {
-			while (preg_match($regex, $matchedPathinfo, $matches)) {
-				foreach ($this->compiledRoutes[2][$m = (int) $matches['MARK']] as $r) {
-					if (is_null($r)) { // marks the last route in the regexp
-						continue 3;
-					}
+		$dump .= str_pad('-------', $longestMethods + 4, ' ', STR_PAD_RIGHT);
+		$dump .= str_pad('----', $longestPath + 4, ' ', STR_PAD_RIGHT);
+		$dump .= "------\n";
 
-					[$ret, $requiredMethods, $vars] = $r;
+		foreach ($routes as $r) {
+			$dump .= str_pad('[' . (count($r->getMethods()) ? join('|', $r->getMethods()) : '*') . ']', $longestMethods + 4, ' ', STR_PAD_RIGHT);
+			$dump .= str_pad($r->getPath(), $longestPath + 4, ' ', STR_PAD_RIGHT);
+			$dump .= join('->', $r->getAction()) . "\n";
+		}
 
-					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-						$allow += $requiredMethods;
-						continue;
-					}
+		$dump .= "-------\n";
+		$dump .= count($routes) . " ROUTES\n";
 
-					foreach ($vars as $i => $v) {
-						if (isset($matches[1 + $i])) {
-							$ret[$v] = $matches[1 + $i];
-						}
-					}
+		return $dump;
+	}
 
-					return $ret;
+	/**
+	 * Find routes in path
+	 * @param string $controllersPath
+	 * @return Route[]
+	 */
+	private function findRoutesFromControllers(string $controllersPath): array
+	{
+		$routes = [];
+
+		foreach ($this->findAllClass($controllersPath) as $class) {
+			$controller = new ReflectionClass($class);
+
+			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+					$route = $attribute->newInstance();
+					$route->setAction([$controller->getName(), $method->getName()]);
+					$routes[] = $route;
 				}
-
-				$regex = substr_replace($regex, 'F', $m - $offset, 1 + strlen(strval($m)));
-				$offset += strlen(strval($m));
 			}
 		}
 
-		return null;
+		return $routes;
 	}
 
 	/**
@@ -308,26 +261,75 @@ class Router
 	}
 
 	/**
-	 * Find routes in path
-	 * @param string $controllersPath
-	 * @return Route[]
+	 * Match pathinfo
+	 * @param string $pathinfo
+	 * @return array
 	 */
-	private function findRoutesFromControllers(string $controllersPath): array
+	private function findRoute(string $pathinfo): array
 	{
-		$routes = [];
+		$allow = [];
 
-		foreach ($this->findAllClass($controllersPath) as $class) {
-			$controller = new ReflectionClass($class);
+		if ($ret = $this->doMatch($pathinfo, $allow)) {
+			return $ret;
+		}
 
-			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
-					$route = $attribute->newInstance();
-					$route->setAction([$controller->getName(), $method->getName()]);
-					$routes[] = $route;
+		if ($allow) {
+			throw new MethodNotAllowedException(array_keys($allow));
+		}
+
+		throw new ResourceNotFoundException(sprintf('No routes found for "%s".', $pathinfo));
+	}
+
+	/**
+	 * Do match
+	 * @param string $pathinfo
+	 * @param array $allow
+	 * @return null|array
+	 */
+	private function doMatch(string $pathinfo, array &$allow = []): ?array
+	{
+		$allow = [];
+		$requestMethod = $_SERVER['REQUEST_METHOD'];
+
+		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
+			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
+				$allow += $requiredMethods;
+				continue;
+			}
+
+			return $ret;
+		}
+
+		$matchedPathinfo = $pathinfo;
+
+		foreach ($this->compiledRoutes[1] as $offset => $regex) {
+			while (preg_match($regex, $matchedPathinfo, $matches)) {
+				foreach ($this->compiledRoutes[2][$m = (int) $matches['MARK']] as $r) {
+					if (is_null($r)) { // marks the last route in the regexp
+						continue 3;
+					}
+
+					[$ret, $requiredMethods, $vars] = $r;
+
+					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
+						$allow += $requiredMethods;
+						continue;
+					}
+
+					foreach ($vars as $i => $v) {
+						if (isset($matches[1 + $i])) {
+							$ret[$v] = $matches[1 + $i];
+						}
+					}
+
+					return $ret;
 				}
+
+				$regex = substr_replace($regex, 'F', $m - $offset, 1 + strlen(strval($m)));
+				$offset += strlen(strval($m));
 			}
 		}
 
-		return $routes;
+		return null;
 	}
 }

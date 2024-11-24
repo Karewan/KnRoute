@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Karewan\KnRoute\Dumper;
 
-use DomainException;
 use ErrorException;
 use Exception;
 use Karewan\KnRoute\Attributes\Route;
-use LogicException;
 use RuntimeException;
 use stdClass;
 
@@ -33,10 +31,6 @@ class RoutesDumper
 	/**
 	 * Get compiled routes
 	 * @return array
-	 * @throws LogicException
-	 * @throws DomainException
-	 * @throws ErrorException
-	 * @throws Exception
 	 */
 	public function getCompiledRoutes(): array
 	{

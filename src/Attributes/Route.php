@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Karewan\KnRoute\Attributes;
 
 use Attribute;
-use DomainException;
-use Karewan\KnRoute\CompiledRoute;
-use Karewan\KnRoute\RoutesCompiler;
-use LogicException;
+use Karewan\KnRoute\Routes\CompiledRoute;
+use Karewan\KnRoute\Routes\RoutesCompiler;
 
 #[Attribute(Attribute::IS_REPEATABLE | Attribute::TARGET_METHOD)]
 class Route
@@ -103,8 +101,6 @@ class Route
 	/**
 	 * Compile the route
 	 * @return CompiledRoute
-	 * @throws LogicException
-	 * @throws DomainException
 	 */
 	public function compile(): CompiledRoute
 	{

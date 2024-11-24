@@ -1,14 +1,39 @@
 # KnRoute
 
-Simple and fast PHP 8.1+ router with routes attributes and caching
+Simple and fast PHP 8.3+ router with routes attributes and caching (+Inertia.js compatiblity).
 
-### Changelog
+## Table of content
 
-See the changelog [here](CHANGELOG.md)
+- [Installation](#installation)
+	- [Requirements](#requirements)
+	- [Getting started](#getting-started)
+- [Usage](#usage)
+	- [Register routes from the controllers and run the router](#register-routes-from-the-controllers-and-run-the-router)
+	- [Different types of routes](#different-types-of-routes)
+	- [Add route attributes to controller methods](#add-route-attributes-to-controller-methods)
+	- [Use variables inside a path](#use-variables-inside-a-path)
+	- [Variable types with their corresponding regex](#variable-types-with-their-corresponding-regex)
+	- [Create a middleware](#create-a-middleware)
+	- [Use a middleware on a class](#use-a-middleware-on-a-class)
+	- [Use a middleware on a class method](#use-a-middleware-on-a-class-method)
+	- [Create a middleware with parameters](#create-a-middleware-with-parameters)
+	- [Use a middleware with parameters](#use-a-middleware-with-parameters)
+	- [HttpUtils class (all methods are static)](#httputils-class-all-methods-are-static)
+- [Inertia.js plugin usage](#inertiajs-plugin-usage)
+	- [Init the plugin](#init-the-plugin)
+	- [The template file](#the-template-file)
+	- [Render a component with its props](#render-a-component-with-its-props)
+	- [Share props](#share-props)
+	- [View data](#view-data)
+	- [Inertia class (all methods are static)](#inertia-class-all-methods-are-static)
+- [Changelog](#changelog)
+- [License](#license)
+
+## Installation
 
 ### Requirements
 
-PHP 8.1+
+PHP 8.3+
 
 ### Getting started
 
@@ -16,158 +41,33 @@ PHP 8.1+
 $ composer require karewan/knroute
 ```
 
-### Usage example
+## Usage
+
+### Register routes from the controllers and run the router
 
 ```php
 declare(strict_types=1);
 
 use Karewan\KnRoute\Router;
 
+// Init the router
 $router = new Router();
+
+// Scan controllers, register routes and optionnaly cache them
 $router->registerRoutesFromControllers(
-	__DIR__ . 'App/Controllers',
-	DEBUG ? null : __DIR__ . 'tmp/cache.php'
+	// Folder to be scanned
+	controllersPath: __DIR__ . '/App/Controllers',
+	// Use cache only for prod (do not forget to clear cache after deploy)
+	cacheFile: DEBUG ? null : __DIR__ . '/tmp/cache.php'
 );
+
+// Run the router (nothing will be executed below this line)
 $router->run();
 ```
 
-```php
-declare(strict_types=1);
+### Different types of routes
 
-namespace App\Controllers;
-
-use App\Middlewares\AuthMiddleware;
-use App\Middlewares\SecretMiddleware;
-use App\Middlewares\TestMiddleware;
-use Karewan\KnRoute\Attributes\Delete;
-use Karewan\KnRoute\Attributes\Get;
-use Karewan\KnRoute\Attributes\Post;
-use Karewan\KnRoute\Attributes\Route;
-
-#[AuthMiddleware()]
-class AmdController
-{
-	public function __construct()
-	{
-		echo "AmdController@__construct\n";
-	}
-
-	#[Get('/amd')]
-	public function index(): void
-	{
-		echo "AmdController@index\n";
-	}
-
-	#[Get('/amd/{id:num}'), TestMiddleware()]
-	public function get(int $id): void
-	{
-		echo "AmdController@get(id={$id})\n";
-	}
-
-	#[Post('/amd/{id:num}')]
-	public function save(int $id): void
-	{
-		echo "AmdController@save(id={$id})\n";
-	}
-
-	#[Delete('/amd/{id:num}')]
-	public function delete(int $id): void
-	{
-		echo "AmdController@delete(id={$id})\n";
-	}
-
-	#[
-		Route(['GET', 'POST', 'PUT'], '/amd/special-page'),
-		TestMiddleware()
-	]
-	public function specialPage(): void
-	{
-		echo "AmdController@specialPage\n";
-	}
-
-	#[
-		Get('/amd/{id:num}/ryzen/{model:alpha}/{hexRef:hex}'),
-		TestMiddleware(),
-		SecretMiddleware(requireType: 99)
-	]
-	public function topSecret(int $id, string $model, string $hexRef): void
-	{
-		echo "AmdController@topSecret(id={$id},model={$model},hexRef={$hexRef})\n";
-	}
-}
-```
-
-```php
-declare(strict_types=1);
-
-namespace App\Middlewares;
-
-use Attribute;
-use Karewan\KnRoute\IMiddleware;
-
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
-class AuthMiddleware implements IMiddleware
-{
-	public function handle(): void
-	{
-		echo "AuthMiddleware@handle()\n";
-		// if (true) {
-		// 	http_response_code(401);
-		// 	die();
-		// }
-	}
-}
-```
-
-```php
-declare(strict_types=1);
-
-namespace App\Middlewares;
-
-use Attribute;
-use Karewan\KnRoute\IMiddleware;
-
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
-class TestMiddleware implements IMiddleware
-{
-	public function handle(): void
-	{
-		echo "TestMiddleware@handle()\n";
-		// if (true) {
-		// 	http_response_code(401);
-		// 	die();
-		// }
-	}
-}
-```
-
-```php
-declare(strict_types=1);
-
-namespace App\Middlewares;
-
-use Attribute;
-use Karewan\KnRoute\IMiddleware;
-
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
-class SecretMiddleware implements IMiddleware
-{
-	public function __construct(private ?int $requireType = null)
-	{
-	}
-
-	public function handle(): void
-	{
-		echo "SecretMiddleware@handle(requireType={$this->requireType})\n";
-		// if (true) {
-		// 	http_response_code(401);
-		// 	die();
-		// }
-	}
-}
-```
-
-### Routes types
+All are method attributes.
 
 ```php
 // All HTTP methods
@@ -188,11 +88,38 @@ class SecretMiddleware implements IMiddleware
 // HTTP PUT method
 #[Put('/test')]
 
-// List of HTTP methods
+// Use an array of HTTP methods
 #[Route(['GET', 'POST'], '/test')]
 ```
 
-### Variables
+### Add route attributes to controller methods
+
+```php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\Attributes\Post;
+use Karewan\KnRoute\HttpUtils;
+
+class IndexController
+{
+	#[Get('/')]
+	public function index(): never
+	{
+		HttpUtils::outputText("IndexController@index\n");
+	}
+
+	#[Post('/login')]
+	public function login(): never
+	{
+		HttpUtils::outputJson(['error' => 'Bad credentials']);
+	}
+}
+```
+
+### Use variables inside a path
 
 Name of the variable followed by the type.
 
@@ -203,7 +130,7 @@ public function topSecret(int $id, string $model):void {
 }
 ```
 
-### Variable types
+### Variable types with their corresponding regex
 
 ```
 :alpha		[a-z0-9]+
@@ -215,15 +142,149 @@ public function topSecret(int $id, string $model):void {
 :all		.*
 ```
 
-### HttpUtils class (all static methods)
+### Create a middleware
+
+```php
+declare(strict_types=1);
+
+namespace App\Middlewares;
+
+use Attribute;
+use Karewan\KnRoute\HttpUtils;
+use Karewan\KnRoute\IMiddleware;
+
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
+class AuthMiddleware implements IMiddleware
+{
+	/**
+	 * Do your logic here
+	 * @return void
+	 */
+	public function handle(): void
+	{
+		if(!isLogged()) {
+			HttpUtils::dieStatus(401);
+		}
+	}
+}
+```
+
+### Use a middleware on a class
+
+Will be executed before instantiating the class.
+
+```php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Middlewares\AuthMiddleware;
+use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\HttpUtils;
+
+#[AuthMiddleware()]
+class TestController
+{
+	#[Get('/')]
+	public function index(): void
+	{
+		HttpUtils::outputText("TestController@index\n");
+	}
+}
+```
+
+### Use a middleware on a class method
+
+Will be executed after instantiating the class and before calling the method.
+
+```php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Middlewares\AuthMiddleware;
+use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\HttpUtils;
+
+class TestController
+{
+	#[Get('/'), AuthMiddleware()]
+	public function index(): void
+	{
+		HttpUtils::outputText("TestController@index\n");
+	}
+}
+```
+
+### Create a middleware with parameters
+
+```php
+declare(strict_types=1);
+
+namespace App\Middlewares;
+
+use Attribute;
+use Karewan\KnRoute\HttpUtils;
+use Karewan\KnRoute\IMiddleware;
+
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
+class SecretMiddleware implements IMiddleware
+{
+	/**
+	 * Class constructor
+	 * @param null|int $requireType
+	 * @return void
+	 */
+	public function __construct(private ?int $requireType = null) {}
+
+	/**
+	 * Define your logic here
+	 * @return void
+	 */
+	public function handle(): void
+	{
+		if (!is_null($this->requireType)) {
+			HttpUtils::outputText("SecretMiddleware@handle(requireType={$this->requireType})\n");
+		}
+	}
+}
+```
+
+### Use a middleware with parameters
+
+```php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Middlewares\SecretMiddleware;
+use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\HttpUtils;
+
+#[SecretMiddleware(requireType: 10)]
+class TestController
+{
+	#[Get('/'), SecretMiddleware(requireType: 99)]
+	public function index(): void
+	{
+		HttpUtils::outputText("TestController@index\n");
+	}
+}
+```
+
+### HttpUtils class (all methods are static)
+
+Karewan\KnRoute\HttpUtils::
 
 ```php
 function getHost(): string;
 function getPath(): string;
 function getMethod(): string;
 function getProtocol():string;
-function getHeader(string $name): ?string;
+function hasHeader(string $name): bool;
+function getHeader(string $name): string;
 function getHeaders(): array;
+function setHeader(string $key, string $value, int $httpCode = 0, bool $replace = true): void;
 function getQueryString(): string;
 function getContentType(): string;
 function getContentLength(): string;
@@ -235,14 +296,187 @@ function getIp(): string;
 function getServerPort(): int;
 function getClientPort(): int;
 function getBody(): string;
-function getJsonBody(bool $associative = false, bool $bigIntAsString = true): mixed;
+function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed
 function outputJson(mixed $data, int $httpCode = 200): never;
 function outputHtml(string $html, int $httpCode = 200): never;
 function outputText(string $text, int $httpCode = 200): never;
+function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
 
-### License
+## Inertia.js plugin usage
+
+### Init the plugin
+
+Must be init before the router.
+
+```php
+declare(strict_types=1);
+
+use Karewan\KnRoute\Plugins\Inertia\Inertia;
+use Karewan\KnRoute\Router;
+
+// App / Assets version
+const APP_VERSION = 'b3d5e9f30';
+
+// Init Inertia
+Inertia::init(
+	// Use your view rendering method here with your Template file (from your framework or your custom method)
+	viewFnc: fn(array $data): string => view('MyTemplate', $data),
+	// Assets version (not mandatory)
+	version: APP_VERSION
+);
+
+// Router...
+$router = new Router();
+```
+
+If you don't have a view rendering method, you can use the method below.
+
+```php
+/**
+ * Return the content of a view file
+ * @param string $view
+ * @param array $data
+ * @return string
+ */
+function view(string $view, array $data = []): string
+{
+	ob_start();
+	extract($data, EXTR_OVERWRITE);
+	require APPDIR . "Views/{$view}.php";
+	return ob_get_clean();
+}
+```
+
+### The template file
+
+App/Views/MyTemplate.php
+
+```php
+<!DOCTYPE html>
+<html>
+
+<head>
+...
+</head>
+
+<body>
+	<!-- This will append the Inertia data-page JSON -->
+	<div id="app" <?= $inertiaPage ?>></div>
+</body>
+
+</html>
+```
+
+### Render a component with its props
+
+```php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use Karewan\KnRoute\Attributes\Get;
+use Karewan\KnRoute\HttpUtils;
+use Karewan\KnRoute\Plugins\Inertia\Inertia;
+
+class TestController
+{
+	#[Get('/')]
+	public function index(): void
+	{
+		Inertia::render('Index', [
+			'data1' => 'data1',
+			'data2' => fn() => 'data2',
+			'data3' => Inertia::lazy(fn() => 'data3'),
+			'data4' => Inertia::always('data4')
+		]);
+	}
+}
+```
+
+### Share props
+
+Shared props will be merged with Inertia::render props.
+Must be called before the Inertia::render method.
+
+```php
+declare(strict_types=1);
+
+use Karewan\KnRoute\Plugins\Inertia\Inertia;
+
+// One key
+Inertia::share('user', 'John Doe');
+// OR a full array
+Inertia::share([
+	'user', 'John Doe',
+	'foo' => []
+]);
+```
+
+### View data
+
+Data to send to the template file.
+Must be called before the Inertia::render method.
+
+```php
+declare(strict_types=1);
+
+use Karewan\KnRoute\Plugins\Inertia\Inertia;
+
+// One key
+Inertia::viewData('foo', 'bar');
+// OR a full array
+Inertia::viewData([
+	'foo', 'bar',
+	'fooArr' => []
+]);
+```
+
+Usage from the template file
+
+```php
+<!DOCTYPE html>
+<html>
+
+<head>
+...
+</head>
+
+<body>
+	<div id="app" <?= $inertiaPage ?>></div>
+	<!-- View data are transformed to a variables -->
+	<p><?= $foo ?></p>
+</body>
+
+</html>
+```
+
+### Inertia class (all methods are static)
+
+Karewan\KnRoute\Plugins\Inertia\Inertia::
+
+```php
+function init(Closure $viewFnc, string $version = ''): void;
+function getVersion(): string;
+function viewData(string|array $key, mixed $data): void;
+function getViewData(): array;
+function flushViewData(): void;
+function share(string|array $key, mixed $data): void;
+function getShared(): array;
+function flushShared(): void;
+// Inertia redirect (this initiate a full page reload on the client side)
+function location(string $url = '/'): never;
+function always(mixed $data): AlwaysProp;
+function lazy(Closure $data): LazyProp;
+function render(string $component, array $props = []): never;
+```
+
+## Changelog
+
+See the changelog [here](CHANGELOG.md)
+
+## License
 
 See the license [here](LICENSE.txt)
 

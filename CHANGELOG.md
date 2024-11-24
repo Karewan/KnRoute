@@ -1,3 +1,17 @@
+v3.0.0 (2024-11-24)
+----------------------------
+* ### Inertia.js plugin
+* Added new HttpUtils methods
+	* hasHeader
+	* setHeader
+	* location
+* Various improvements
+* ### Breaking changes
+	* Bumped PHP version requirement to 8.3
+	* Modified HttpUtils methods
+		* getHeader to always return a string (instead of null)
+		* getJsonBody to add the depth parameter and replace bigIntAsString var by flags var
+
 v2.0.1 (2024-11-05)
 ----------------------------
 * Removed brick/varexporter dependency replaced with an optimized method

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Karewan\KnRoute;
+namespace Karewan\KnRoute\Routes;
 
 use DomainException;
 use Karewan\KnRoute\Attributes\Route;
@@ -16,19 +16,20 @@ class RoutesCompiler
 	 * can be left out together with the optional placeholder from matching and generating URLs.
 	 * @var string
 	 */
-	public const SEPARATORS = '/,;.:-_~+*=@|';
+	public const string SEPARATORS = '/,;.:-_~+*=@|';
 
 	/**
 	 * The maximum supported length of a PCRE subpattern name
 	 * http://pcre.org/current/doc/html/pcre2pattern.html#SEC16.
 	 * @var int
 	 */
-	public const VARIABLE_MAXIMUM_LENGTH = 32;
+	public const int VARIABLE_MAXIMUM_LENGTH = 32;
 
 	/**
 	 * Var regex types
+	 * @var array<string,string>
 	 */
-	private const VAR_REGEX = [
+	private const array VAR_REGEX = [
 		'slug' => '[a-z0-9\-]+',
 		'hex' => '[a-f0-9]+',
 		'alpha' => '[a-z0-9]+',
@@ -41,9 +42,6 @@ class RoutesCompiler
 	/**
 	 * Compile
 	 * @param Route $route
-	 * @return CompiledRoute
-	 * @throws LogicException
-	 * @throws DomainException
 	 */
 	public static function compile(Route $route): CompiledRoute
 	{
@@ -63,7 +61,6 @@ class RoutesCompiler
 	 * @param Route $route
 	 * @param string $pattern
 	 * @return string
-	 * @throws LogicException
 	 */
 	private static function extractVarsRegex(Route $route, string $pattern): string
 	{
@@ -95,8 +92,6 @@ class RoutesCompiler
 	 * @param Route $route
 	 * @param string $pattern
 	 * @return array
-	 * @throws DomainException
-	 * @throws LogicException
 	 */
 	private static function compilePattern(Route $route, string $pattern): array
 	{

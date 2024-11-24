@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Karewan\KnRoute;
+namespace Karewan\KnRoute\Routes;
 
 class CompiledRoute
 {

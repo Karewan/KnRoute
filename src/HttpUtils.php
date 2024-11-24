@@ -6,17 +6,17 @@ namespace Karewan\KnRoute;
 
 class HttpUtils
 {
-	/** @var null|string */
-	private static ?string $host = null;
+	/** @var string */
+	private static string $host;
 
-	/** @var null|string */
-	private static ?string $path = null;
+	/** @var string */
+	private static string $path;
 
-	/** @var null|array<string,string> */
-	private static ?array $headers = null;
+	/** @var array<string,string> */
+	private static array $headers;
 
-	/** @var null|string */
-	private static ?string $ip = null;
+	/** @var string */
+	private static string $ip;
 
 	/**
 	 * Get host
@@ -24,7 +24,7 @@ class HttpUtils
 	 */
 	public static function getHost(): string
 	{
-		if (is_null(self::$host)) self::$host = explode(':', $_SERVER['HTTP_HOST'])[0];
+		if (!isset(self::$host)) self::$host = explode(':', $_SERVER['HTTP_HOST'])[0];
 		return self::$host;
 	}
 
@@ -34,7 +34,7 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		if (is_null(self::$path)) self::$path = '/' . strtolower(trim(explode('?', $_SERVER['REQUEST_URI'])[0], '/'));
+		if (!isset(self::$path)) self::$path = '/' . strtolower(trim(explode('?', $_SERVER['REQUEST_URI'])[0], '/'));
 		return self::$path;
 	}
 
@@ -57,14 +57,25 @@ class HttpUtils
 	}
 
 	/**
+	 * Has header
+	 * @param string $name
+	 * @return bool
+	 */
+	public static function hasHeader(string $name): bool
+	{
+		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
+		return isset(self::$headers[$name]);
+	}
+
+	/**
 	 * Get header
 	 * @param string $name
-	 * @return null|string
+	 * @return string
 	 */
-	public static function getHeader(string $name): ?string
+	public static function getHeader(string $name): string
 	{
-		if (is_null(self::$headers)) self::$headers = self::normalizeHeaders();
-		return self::$headers[$name] ?? null;
+		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
+		return self::$headers[$name] ?? '';
 	}
 
 	/**
@@ -73,8 +84,21 @@ class HttpUtils
 	 */
 	public static function getHeaders(): array
 	{
-		if (is_null(self::$headers)) self::$headers = self::normalizeHeaders();
+		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
 		return self::$headers;
+	}
+
+	/**
+	 * Set header
+	 * @param string $key
+	 * @param string $value
+	 * @param int $httpCode
+	 * @param bool $replace
+	 * @return void
+	 */
+	public static function setHeader(string $key, string $value, int $httpCode = 0, bool $replace = true): void
+	{
+		header("{$key}: {$value}", $replace, $httpCode);
 	}
 
 	/**
@@ -92,7 +116,7 @@ class HttpUtils
 	 */
 	public static function getContentType(): string
 	{
-		return self::getHeader('Content-Type') ?? '';
+		return self::getHeader('Content-Type');
 	}
 
 	/**
@@ -101,7 +125,7 @@ class HttpUtils
 	 */
 	public static function getContentLength(): string
 	{
-		return self::getHeader('Content-Length') ?? '';
+		return self::getHeader('Content-Length');
 	}
 
 	/**
@@ -110,7 +134,7 @@ class HttpUtils
 	 */
 	public static function getUserAgent(): string
 	{
-		return self::getHeader('User-Agent') ?? '';
+		return self::getHeader('User-Agent');
 	}
 
 	/**
@@ -119,7 +143,7 @@ class HttpUtils
 	 */
 	public static function getLanguages(): string
 	{
-		return self::getHeader('Accept-Language') ?? '';
+		return self::getHeader('Accept-Language');
 	}
 
 	/**
@@ -128,7 +152,7 @@ class HttpUtils
 	 */
 	public static function getAcceptEncoding(): string
 	{
-		return self::getHeader('Accept-Encoding') ?? '';
+		return self::getHeader('Accept-Encoding');
 	}
 
 	/**
@@ -137,7 +161,7 @@ class HttpUtils
 	 */
 	public static function getReferer(): string
 	{
-		return self::getHeader('Referer') ?? '';
+		return self::getHeader('Referer');
 	}
 
 	/**
@@ -146,7 +170,7 @@ class HttpUtils
 	 */
 	public static function getIp(): string
 	{
-		if (is_null(self::$ip)) self::$ip = self::normalizeIp();
+		if (!isset(self::$ip)) self::$ip = self::normalizeIp();
 		return self::$ip;
 	}
 
@@ -180,12 +204,13 @@ class HttpUtils
 	/**
 	 * Get JSON from body
 	 * @param bool $associative
-	 * @param bool $bigIntAsString
+	 * @param int $depth
+	 * @param int $flags
 	 * @return mixed
 	 */
-	public static function getJsonBody(bool $associative = false, bool $bigIntAsString = true): mixed
+	public static function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed
 	{
-		return json_decode(self::getBody(), $associative, 512, $bigIntAsString ? JSON_BIGINT_AS_STRING : 0);
+		return json_decode(self::getBody(), $associative, $depth, $flags);
 	}
 
 	/**
@@ -224,6 +249,18 @@ class HttpUtils
 	{
 		header('Content-type: text/plain; charset=utf-8', true, $httpCode);
 		echo $text;
+		die();
+	}
+
+	/**
+	 * HTTP Redirect
+	 * @param string $path
+	 * @param int $httpCode
+	 * @return never
+	 */
+	public static function location(string $path = '/', int $httpCode = 302): never
+	{
+		header("Location: {$path}", true, $httpCode);
 		die();
 	}
 

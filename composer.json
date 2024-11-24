@@ -1,19 +1,20 @@
 {
 	"name": "karewan/knroute",
-	"description": "Simple and fast PHP 8.1+ router with routes attributes and caching",
-	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri"],
+	"description": "Simple and fast PHP 8.3+ router with routes attributes and caching (+Inertia.js compatiblity)",
+	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri", "inertia"],
 	"type": "library",
-	"version": "2.0.1",
+	"version": "3.0.0",
 	"license": "MIT",
 	"homepage": "https://github.com/Karewan/KnRoute",
 	"authors": [
 		{
 			"name": "Florent VIALATTE",
-			"role": "developer"
+			"role": "developer",
+			"homepage": "https://github.com/Karewan"
 		}
 	],
 	"require": {
-		"php": ">=8.1"
+		"php": ">=8.3"
 	},
 	"autoload": {
 		"psr-4": {
