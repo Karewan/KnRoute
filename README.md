@@ -445,7 +445,7 @@ Usage from the template file
 
 <body>
 	<div id="app" <?= $inertiaPage ?>></div>
-	<!-- View data are transformed to a variables -->
+	<!-- View data are transformed into variables -->
 	<p><?= $foo ?></p>
 </body>
 
