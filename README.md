@@ -4,30 +4,32 @@ Simple and fast PHP 8.3+ router with routes attributes and caching (+Inertia.js 
 
 ## Table of content
 
-- [Installation](#installation)
-	- [Requirements](#requirements)
-	- [Getting started](#getting-started)
-- [Usage](#usage)
-	- [Register routes from the controllers and run the router](#register-routes-from-the-controllers-and-run-the-router)
-	- [Different types of routes](#different-types-of-routes)
-	- [Add route attributes to controller methods](#add-route-attributes-to-controller-methods)
-	- [Use variables inside a path](#use-variables-inside-a-path)
-	- [Variable types with their corresponding regex](#variable-types-with-their-corresponding-regex)
-	- [Create a middleware](#create-a-middleware)
-	- [Use a middleware on a class](#use-a-middleware-on-a-class)
-	- [Use a middleware on a class method](#use-a-middleware-on-a-class-method)
-	- [Create a middleware with parameters](#create-a-middleware-with-parameters)
-	- [Use a middleware with parameters](#use-a-middleware-with-parameters)
-	- [HttpUtils class (all methods are static)](#httputils-class-all-methods-are-static)
-- [Inertia.js plugin usage](#inertiajs-plugin-usage)
-	- [Init the plugin](#init-the-plugin)
-	- [The template file](#the-template-file)
-	- [Render a component with its props](#render-a-component-with-its-props)
-	- [Share props](#share-props)
-	- [View data](#view-data)
-	- [Inertia class (all methods are static)](#inertia-class-all-methods-are-static)
-- [Changelog](#changelog)
-- [License](#license)
+- [KnRoute](#knroute)
+	- [Table of content](#table-of-content)
+	- [Installation](#installation)
+		- [Requirements](#requirements)
+		- [Getting started](#getting-started)
+	- [Usage](#usage)
+		- [Register routes from the controllers and run the router](#register-routes-from-the-controllers-and-run-the-router)
+		- [Different types of routes](#different-types-of-routes)
+		- [Add route attributes to controller methods](#add-route-attributes-to-controller-methods)
+		- [Use variables inside a path](#use-variables-inside-a-path)
+		- [Variable types with their corresponding regex](#variable-types-with-their-corresponding-regex)
+		- [Create a middleware](#create-a-middleware)
+		- [Use a middleware on a class](#use-a-middleware-on-a-class)
+		- [Use a middleware on a class method](#use-a-middleware-on-a-class-method)
+		- [Create a middleware with parameters](#create-a-middleware-with-parameters)
+		- [Use a middleware with parameters](#use-a-middleware-with-parameters)
+		- [HttpUtils class (all methods are static)](#httputils-class-all-methods-are-static)
+	- [Inertia.js plugin usage](#inertiajs-plugin-usage)
+		- [Init the plugin](#init-the-plugin)
+		- [The template file](#the-template-file)
+		- [Render a component with its props](#render-a-component-with-its-props)
+		- [Share props](#share-props)
+		- [View data](#view-data)
+		- [Inertia class (all methods are static)](#inertia-class-all-methods-are-static)
+	- [Changelog](#changelog)
+	- [License](#license)
 
 ## Installation
 
@@ -296,7 +298,7 @@ function getIp(): string;
 function getServerPort(): int;
 function getClientPort(): int;
 function getBody(): string;
-function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed
+function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed;
 function outputJson(mixed $data, int $httpCode = 200): never;
 function outputHtml(string $html, int $httpCode = 200): never;
 function outputText(string $text, int $httpCode = 200): never;
