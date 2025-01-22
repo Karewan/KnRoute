@@ -1,3 +1,7 @@
+v3.0.1 (2025-01-22)
+----------------------------
+* Optionnal args for share and viewData methods
+
 v3.0.0 (2024-11-24)
 ----------------------------
 * ### Inertia.js plugin

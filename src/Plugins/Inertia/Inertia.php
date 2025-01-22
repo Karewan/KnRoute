@@ -58,7 +58,7 @@ class Inertia
 	 * @param mixed $data
 	 * @return void
 	 */
-	public static function viewData(string|array $key, mixed $data): void
+	public static function viewData(string|array $key, mixed $data = null): void
 	{
 		if (is_array($key)) {
 			self::$viewData = array_merge(self::$viewData, $key);
@@ -91,7 +91,7 @@ class Inertia
 	 * @param mixed $data
 	 * @return void
 	 */
-	public static function share(string|array $key, mixed $data): void
+	public static function share(string|array $key, mixed $data = null): void
 	{
 		if (is_array($key)) {
 			self::$sharedProps = array_merge(self::$sharedProps, $key);

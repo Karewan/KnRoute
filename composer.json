@@ -3,7 +3,7 @@
 	"description": "Simple and fast PHP 8.3+ router with routes attributes and caching (+Inertia.js compatiblity)",
 	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri", "inertia"],
 	"type": "library",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"license": "MIT",
 	"homepage": "https://github.com/Karewan/KnRoute",
 	"authors": [
