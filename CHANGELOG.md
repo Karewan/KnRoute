@@ -1,3 +1,7 @@
+v3.0.2 (2025-02-17)
+----------------------------
+* Added two constants IS_XHR and IS_INERTIA (the second is set only if Inertia::init is called)
+
 v3.0.1 (2025-01-22)
 ----------------------------
 * Optionnal args for share and viewData methods

@@ -41,6 +41,9 @@ class Inertia
 	{
 		self::$viewFnc = $viewFnc;
 		self::$version = $version;
+
+		// Define a constant to check if current req is from Inertia
+		define('IS_INERTIA', HttpUtils::hasHeader(self::HEADER_INERTIA));
 	}
 
 	/**
@@ -171,7 +174,7 @@ class Inertia
 		];
 
 		// Direct page access => Output the HTML view
-		if (!HttpUtils::hasHeader(self::HEADER_INERTIA)) HttpUtils::outputHtml((self::$viewFnc)(array_merge(
+		if (!IS_INERTIA) HttpUtils::outputHtml((self::$viewFnc)(array_merge(
 			['inertiaPage' => 'data-page="' . htmlspecialchars(json_encode($page), ENT_QUOTES, 'UTF-8') . '"'],
 			self::$viewData
 		)));

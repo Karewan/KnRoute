@@ -306,6 +306,11 @@ function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
 
+Global constant (bool)
+```php
+IS_XHR
+```
+
 ## Inertia.js plugin usage
 
 ### Init the plugin
@@ -472,6 +477,11 @@ function location(string $url = '/'): never;
 function always(mixed $data): AlwaysProp;
 function lazy(Closure $data): LazyProp;
 function render(string $component, array $props = []): never;
+```
+
+Global constant (bool, only defined if Inertia::init is called)
+```php
+IS_INERTIA
 ```
 
 ## Changelog

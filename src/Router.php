@@ -43,6 +43,9 @@ class Router
 		// Remove content-type by default (if not output => not content type)
 		header('Content-Type:');
 
+		// Set a constant to check if current request is XHR
+		define('IS_XHR', HttpUtils::getHeader('X-Requested-With') == 'XMLHttpRequest');
+
 		try {
 			// The route
 			$route = $this->findRoute(HttpUtils::getPath());
@@ -72,11 +75,11 @@ class Router
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 
-			if ($_SERVER['REQUEST_METHOD'] == 'HEAD') {
+			if (($method = HttpUtils::getMethod() == 'HEAD')) {
 				header('Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
 				header('Pragma: no-cache');
 				header('Expires: 0');
-			} else if ($_SERVER['REQUEST_METHOD'] != 'OPTIONS') {
+			} else if ($method != 'OPTIONS') {
 				http_response_code(405);
 			}
 		} catch (ResourceNotFoundException $e) {
@@ -289,7 +292,7 @@ class Router
 	private function doMatch(string $pathinfo, array &$allow = []): ?array
 	{
 		$allow = [];
-		$requestMethod = $_SERVER['REQUEST_METHOD'];
+		$requestMethod = HttpUtils::getMethod();
 
 		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
 			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
