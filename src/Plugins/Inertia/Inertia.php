@@ -169,7 +169,7 @@ class Inertia
 				only: ($isPartial ? array_flip(array_filter(explode(',', HttpUtils::getHeader(self::HEADER_PARTIAL_ONLY)))) : []),
 				except: ($isPartial ? array_flip(array_filter(explode(',', HttpUtils::getHeader(self::HEADER_PARTIAL_EXCEPT)))) : [])
 			),
-			'url' => HttpUtils::getPath(),
+			'url' => HttpUtils::getPath() . (!empty($queryString = HttpUtils::getQueryString()) ? "?{$queryString}" : ''),
 			'version' => self::$version
 		];
 

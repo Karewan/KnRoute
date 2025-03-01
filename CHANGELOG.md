@@ -1,3 +1,7 @@
+v3.0.3 (2025-03-01)
+----------------------------
+* Fix Inertia URL query string handling
+
 v3.0.2 (2025-02-17)
 ----------------------------
 * Added two constants IS_XHR and IS_INERTIA (the second is set only if Inertia::init is called)
