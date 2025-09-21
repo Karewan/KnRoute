@@ -13,6 +13,7 @@ use RecursiveIteratorIterator;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
+use RuntimeException;
 
 class Router
 {
@@ -121,11 +122,37 @@ class Router
 		}
 
 		$routes = $this->findRoutesFromControllers($controllersPath);
+		$routeDumper = new RoutesDumper($routes);
+		$this->compiledRoutes = $routeDumper->getCompiledRoutes();
 
-		$this->compiledRoutes = ($routeDumper = new RoutesDumper($routes))->getCompiledRoutes();
+		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
+	}
 
-		if (!is_null($cacheFile) && (is_dir($cacheDir = dirname($cacheFile)) || mkdir($cacheDir, 0770, true))) {
-			file_put_contents($cacheFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';');
+	/**
+	 * Save the cache file
+	 * @param RoutesDumper $routeDumper
+	 * @param string $cacheFile
+	 * @return void
+	 */
+	private function saveCacheFile(RoutesDumper $routeDumper, string $cacheFile): void
+	{
+		$cacheDir = dirname($cacheFile);
+
+		if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0770, true) && !is_dir($cacheDir)) {
+			throw new RuntimeException(sprintf('Cache directory "%s" was not created', $cacheDir));
+		}
+
+		$tmpFile = tempnam($cacheDir, 'cache_');
+		if ($tmpFile === false) {
+			throw new RuntimeException(sprintf('Failed to create the tmp cache file'));
+		}
+
+		if (file_put_contents($tmpFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';') === false) {
+			throw new RuntimeException(sprintf('Failed to write the tmp cache file'));
+		}
+
+		if (!rename($tmpFile, $cacheFile)) {
+			throw new RuntimeException(sprintf('Failed to rename the tmp cache file'));
 		}
 	}
 

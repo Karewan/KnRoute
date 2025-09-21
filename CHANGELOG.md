@@ -1,3 +1,7 @@
+v3.0.4 (2025-09-21)
+----------------------------
+* Fixed cache file race condition
+
 v3.0.3 (2025-03-01)
 ----------------------------
 * Fix Inertia URL query string handling
