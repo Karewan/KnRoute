@@ -1,3 +1,10 @@
+v3.0.5 (2025-10-21)
+----------------------------
+* Added setHeaders method
+* Added optional charset parameter to the outputText method
+* Added outputXml method
+* Added outputString method
+
 v3.0.4 (2025-09-21)
 ----------------------------
 * Fixed cache file race condition

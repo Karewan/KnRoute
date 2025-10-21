@@ -287,6 +287,7 @@ function hasHeader(string $name): bool;
 function getHeader(string $name): string;
 function getHeaders(): array;
 function setHeader(string $key, string $value, int $httpCode = 0, bool $replace = true): void;
+function setHeaders(array $headers, int $httpCode = 0, bool $replace = true): void;
 function getQueryString(): string;
 function getContentType(): string;
 function getContentLength(): string;
@@ -301,7 +302,9 @@ function getBody(): string;
 function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed;
 function outputJson(mixed $data, int $httpCode = 200): never;
 function outputHtml(string $html, int $httpCode = 200): never;
-function outputText(string $text, int $httpCode = 200): never;
+function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): never;
+function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never;
+function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): never;
 function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
@@ -493,7 +496,7 @@ See the changelog [here](CHANGELOG.md)
 See the license [here](LICENSE.txt)
 
 ```
-Copyright © 2024 Florent VIALATTE (github.com/Karewan/KnRoute)
+Copyright © 2024 - 2025 Florent VIALATTE (github.com/Karewan/KnRoute)
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

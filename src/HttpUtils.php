@@ -102,6 +102,19 @@ class HttpUtils
 	}
 
 	/**
+	 * Set headers
+	 * @param string $key
+	 * @param string $value
+	 * @param int $httpCode
+	 * @param bool $replace
+	 * @return void
+	 */
+	public static function setHeaders(array $headers, int $httpCode = 0, bool $replace = true): void
+	{
+		foreach ($headers as $key => $value) header("{$key}: {$value}", $replace, $httpCode);
+	}
+
+	/**
 	 * Get query string
 	 * @return string
 	 */
@@ -243,12 +256,42 @@ class HttpUtils
 	 * Output text
 	 * @param string $text
 	 * @param int $httpCode
+	 * @param string $charset
 	 * @return never
 	 */
-	public static function outputText(string $text, int $httpCode = 200): never
+	public static function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): never
 	{
-		header('Content-type: text/plain; charset=utf-8', true, $httpCode);
+		header("Content-type: text/plain; charset={$charset}", true, $httpCode);
 		echo $text;
+		die();
+	}
+
+	/**
+	 * Output XML String
+	 * @param string $xmlString
+	 * @param int $httpCode
+	 * @param string $charset
+	 * @return never
+	 */
+	public static function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never
+	{
+		header("Content-type: text/xml; charset={$charset}", true, $httpCode);
+		echo $xmlString;
+		die();
+	}
+
+	/**
+	 * Output String
+	 * @param string $contentType
+	 * @param string $str
+	 * @param int $httpCode
+	 * @param string $charset
+	 * @return never
+	 */
+	public static function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): never
+	{
+		header("Content-type: {$contentType}; charset={$charset}", true, $httpCode);
+		echo $str;
 		die();
 	}
 
