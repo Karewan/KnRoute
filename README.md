@@ -52,6 +52,9 @@ declare(strict_types=1);
 
 use Karewan\KnRoute\Router;
 
+// DEV / PROD env
+const IS_DEV = true;
+
 // Init the router
 $router = new Router();
 
@@ -59,8 +62,10 @@ $router = new Router();
 $router->registerRoutesFromControllers(
 	// Folder to be scanned
 	controllersPath: __DIR__ . '/App/Controllers',
-	// Use cache only for prod (do not forget to clear cache after deploy)
-	cacheFile: DEBUG ? null : __DIR__ . '/tmp/cache.php'
+	// Use cache only for prod (do not forget to clear cache after deploy) or use in dev with scanForModifiedControllers set to true
+	cacheFile: __DIR__ . '/tmp/cache.php'
+	// Optional parameter, default to false, for using the cache file in dev mode (avoid the heavy controllers scanning each time)
+	scanForModifiedControllers: IS_DEV
 );
 
 // Run the router (nothing will be executed below this line)

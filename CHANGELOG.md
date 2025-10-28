@@ -1,3 +1,7 @@
+v3.0.6 (2025-10-28)
+----------------------------
+* Added a optional parameter "scanForModifiedControllers" to the "registerRoutesFromControllers" function for using the cache file in the dev env
+
 v3.0.5 (2025-10-21)
 ----------------------------
 * Added setHeaders method

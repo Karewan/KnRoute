@@ -112,11 +112,16 @@ class Router
 	 * Register routes from controllers Route attributes
 	 * @param string $controllersPath
 	 * @param null|string $cacheFile
+	 * @param bool $scanForModifiedControllers
 	 * @return void
 	 */
-	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile): void
+	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile, bool $scanForModifiedControllers = false): void
 	{
-		if (!is_null($cacheFile) && is_file($cacheFile)) {
+		if (
+			!is_null($cacheFile) &&
+			is_file($cacheFile) &&
+			(!$scanForModifiedControllers || !$this->hasModifiedControllers($controllersPath, $cacheFile))
+		) {
 			$this->compiledRoutes = require $cacheFile;
 			return;
 		}
@@ -126,6 +131,25 @@ class Router
 		$this->compiledRoutes = $routeDumper->getCompiledRoutes();
 
 		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
+	}
+
+	/**
+	 * Has modified controllers
+	 * @param string $controllersPath
+	 * @param string $cacheFile
+	 * @return bool
+	 */
+	private function hasModifiedControllers(string $controllersPath, string $cacheFile): bool
+	{
+		$lastModified = 0;
+
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($controllersPath)) as $f) {
+			if (!$f->isFile()) continue;
+			$mt = $f->getMTime();
+			if ($mt > $lastModified) $lastModified = $mt;
+		}
+
+		return $lastModified > (@filemtime($cacheFile) ?: 0);
 	}
 
 	/**
