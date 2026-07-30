@@ -19,12 +19,25 @@ class HttpUtils
 	private static string $ip;
 
 	/**
+	 * @var string[]
+	 */
+	private static array $trustedProxyHeaders = [
+		'CF-Connecting-IP',
+		'X-Forwarded-For'
+	];
+
+	/**
 	 * Get host
+	 * @param bool $allowOptionalServerPort Some web servers adds the server port inside the host header
 	 * @return string
 	 */
-	public static function getHost(): string
+	public static function getHost(bool $allowOptionalServerPort = false): string
 	{
-		if (!isset(self::$host)) self::$host = explode(':', $_SERVER['HTTP_HOST'])[0];
+		if (!isset(self::$host)) {
+			$host = self::getHeader('Host');
+			self::$host = !$allowOptionalServerPort ? explode(':', $host)[0] : $host;
+		}
+
 		return self::$host;
 	}
 
@@ -34,7 +47,10 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		if (!isset(self::$path)) self::$path = '/' . strtolower(trim(explode('?', $_SERVER['REQUEST_URI'])[0], '/'));
+		if (!isset(self::$path)) {
+			self::$path = '/' . strtolower(trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '', '/'));
+		}
+
 		return self::$path;
 	}
 
@@ -63,8 +79,7 @@ class HttpUtils
 	 */
 	public static function hasHeader(string $name): bool
 	{
-		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
-		return isset(self::$headers[$name]);
+		return self::getHeader($name) !== '';
 	}
 
 	/**
@@ -74,7 +89,10 @@ class HttpUtils
 	 */
 	public static function getHeader(string $name): string
 	{
-		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
+		if (!isset(self::$headers)) {
+			self::$headers = self::normalizeHeaders();
+		}
+
 		return self::$headers[$name] ?? '';
 	}
 
@@ -84,7 +102,10 @@ class HttpUtils
 	 */
 	public static function getHeaders(): array
 	{
-		if (!isset(self::$headers)) self::$headers = self::normalizeHeaders();
+		if (!isset(self::$headers)) {
+			self::$headers = self::normalizeHeaders();
+		}
+
 		return self::$headers;
 	}
 
@@ -103,8 +124,7 @@ class HttpUtils
 
 	/**
 	 * Set headers
-	 * @param string $key
-	 * @param string $value
+	 * @param array $headers
 	 * @param int $httpCode
 	 * @param bool $replace
 	 * @return void
@@ -178,12 +198,24 @@ class HttpUtils
 	}
 
 	/**
+	 * Settings trusted proxy headers for the getIp method
+	 * @param string[] $headers
+	 */
+	public static function setTrustedProxyHeaders(array $headers): void
+	{
+		self::$trustedProxyHeaders = $headers;
+	}
+
+	/**
 	 * Get client ip address (IPV4 or IPV6)
 	 * @return string
 	 */
 	public static function getIp(): string
 	{
-		if (!isset(self::$ip)) self::$ip = self::normalizeIp();
+		if (!isset(self::$ip)) {
+			self::$ip = self::normalizeIp();
+		}
+
 		return self::$ip;
 	}
 
@@ -366,10 +398,19 @@ class HttpUtils
 	 */
 	private static function normalizeIp(): string
 	{
-		foreach (['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_CF_CONNECTING_IP', 'REMOTE_ADDR'] as $v) {
-			if (isset($_SERVER[$v]) && filter_var($_SERVER[$v], FILTER_VALIDATE_IP)) return $_SERVER[$v];
+		foreach (self::$trustedProxyHeaders as $header) {
+			$headerValue = self::getHeader($header);
+
+			if ($headerValue !== '') {
+				$ips = explode(',', $headerValue);
+				$clientIp = trim($ips[0]);
+
+				if (filter_var($clientIp, FILTER_VALIDATE_IP)) {
+					return $clientIp;
+				}
+			}
 		}
 
-		return '0.0.0.0';
+		return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 	}
 }

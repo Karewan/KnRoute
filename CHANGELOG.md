@@ -1,3 +1,24 @@
+v3.0.7 (2026-07-30)
+----------------------------
+### Security
+* **Refactored IP resolution:** `normalizeIp()` now safely handles comma-separated proxy lists (like `X-Forwarded-For`) by extracting and validating only the first IP, preventing silent failures and IP spoofing.
+* **Removed deprecated proxy headers:** Dropped support for the highly unreliable and easily spoofable `HTTP_CLIENT_IP`.
+* **Strict IP fallback:** `normalizeIp()` now explicitly falls back to `$_SERVER['REMOTE_ADDR']` instead of treating it identically to proxy headers.
+
+### Added
+* **Global proxy configuration:** Added the `setTrustedProxyHeaders()` method and `$trustedProxyHeaders` property to allow dynamic, application-wide configuration of trusted proxies (defaults to `CF-Connecting-IP` and `X-Forwarded-For`).
+* **Host port handling:** Added an `$allowOptionalServerPort` parameter to `getHost()` to optionally retain the port number from the Host header.
+
+### Changed
+* **Optimized URI parsing:** Updated `getPath()` to use PHP's built-in `parse_url(..., PHP_URL_PATH)` instead of string manipulation (`explode`) for safer handling of malformed requests and absolute URIs.
+* **Centralized header retrieval:** `getHost()` now uses `self::getHeader('Host')` instead of directly accessing `$_SERVER['HTTP_HOST']`.
+* **Streamlined `hasHeader`:** Refactored `hasHeader()` to reuse `self::getHeader()` under the hood, removing duplicated initialization logic.
+* **Code Style:** Converted single-line `if` statements to use standard block braces for better readability and PSR-12 compliance.
+
+### Fixed
+* **Docblock correction:** Fixed the PHPDoc in `setHeaders()` to correctly document the `$headers` parameter as an `array` instead of individual string parameters.
+
+
 v3.0.6 (2025-10-28)
 ----------------------------
 * Added a optional parameter "scanForModifiedControllers" to the "registerRoutesFromControllers" function for using the cache file in the dev env
