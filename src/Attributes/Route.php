@@ -21,9 +21,6 @@ class Route
 	/** @var array<string,string> */
 	private array $argumentConverters = [];
 
-	/** @var string[] */
-	private array $varsRegex = [];
-
 	/** @var null|CompiledRoute */
 	private ?CompiledRoute $compiled = null;
 
@@ -34,8 +31,8 @@ class Route
 	 * @return void
 	 */
 	public function __construct(
-		private array $methods,
-		private string $path
+		private readonly array $methods,
+		private readonly string $path
 	) {
 		self::validatePath($path);
 
@@ -61,18 +58,6 @@ class Route
 	public function getMethods(): array
 	{
 		return $this->methods;
-	}
-
-	/**
-	 * Set path
-	 * @param string $path
-	 * @return void
-	 */
-	public function setPath(string $path): void
-	{
-		self::validatePath($path);
-		$this->path = $path;
-		$this->compiled = null;
 	}
 
 	/**
@@ -123,26 +108,6 @@ class Route
 	public function getArgumentConverters(): array
 	{
 		return $this->argumentConverters;
-	}
-
-	/**
-	 * Set vars regex
-	 * @param string[] $varsRegex
-	 * @return void
-	 */
-	public function setVarsRegex(array $varsRegex): void
-	{
-		$this->varsRegex = $varsRegex;
-	}
-
-	/**
-	 * Vars regex
-	 * @param string $varName
-	 * @return null|string
-	 */
-	public function getVarRegex(string $varName): ?string
-	{
-		return $this->varsRegex[$varName] ?? null;
 	}
 
 	/**

@@ -46,9 +46,9 @@ class RoutesCompiler
 	 */
 	public static function compile(Route $route): CompiledRoute
 	{
-		$pattern = self::parseVariables($route, $route->getPath());
+		[$pattern, $varsRegex] = self::parseVariables($route->getPath());
 
-		$result = self::compilePattern($route, $pattern);
+		$result = self::compilePattern($pattern, $varsRegex);
 
 		return new CompiledRoute(
 			$result['staticPrefix'],
@@ -59,11 +59,10 @@ class RoutesCompiler
 
 	/**
 	 * Extract vars regex
-	 * @param Route $route
 	 * @param string $pattern
-	 * @return string
+	 * @return array{string,array<string,string>}
 	 */
-	private static function parseVariables(Route $route, string $pattern): string
+	private static function parseVariables(string $pattern): array
 	{
 		$varsRegex = [];
 		$normalizedPattern = '';
@@ -108,18 +107,16 @@ class RoutesCompiler
 
 		$normalizedPattern .= substr($pattern, $offset);
 
-		$route->setVarsRegex($varsRegex);
-
-		return $normalizedPattern;
+		return [$normalizedPattern, $varsRegex];
 	}
 
 	/**
 	 * Compile pattern
-	 * @param Route $route
 	 * @param string $pattern
+	 * @param array<string,string> $varsRegex
 	 * @return array
 	 */
-	private static function compilePattern(Route $route, string $pattern): array
+	private static function compilePattern(string $pattern, array $varsRegex): array
 	{
 		$tokens = [];
 		$variables = [];
@@ -146,7 +143,7 @@ class RoutesCompiler
 				$tokens[] = ['text', $precedingText];
 			}
 
-			$regexp = $route->getVarRegex($varName);
+			$regexp = $varsRegex[$varName] ?? null;
 			if (null === $regexp) {
 				$followingPattern = (string) substr($pattern, $pos);
 				// Find the next static character after the variable that functions as a separator. By default, this separator and '/'
@@ -188,7 +185,7 @@ class RoutesCompiler
 		$regexp = '{^' . $regexp . '$}sD';
 
 		return [
-			'staticPrefix' => self::determineStaticPrefix($route, $tokens),
+			'staticPrefix' => self::determineStaticPrefix($tokens),
 			'regex' => $regexp,
 			'variables' => $variables,
 		];
@@ -196,11 +193,10 @@ class RoutesCompiler
 
 	/**
 	 * Determine static prefix
-	 * @param Route $route
 	 * @param array $tokens
 	 * @return string
 	 */
-	private static function determineStaticPrefix(Route $route, array $tokens): string
+	private static function determineStaticPrefix(array $tokens): string
 	{
 		if ('text' !== $tokens[0][0]) return '/' === $tokens[0][1] ? '' : $tokens[0][1];
 		$prefix = $tokens[0][1];

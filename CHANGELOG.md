@@ -41,9 +41,11 @@ v4.0.0 (unreleased)
 * **Routes cache:** Cache invalidation now detects controller additions, deletions, and content changes; writes clean up temporary files and invalidate OPcache after atomic replacement.
 
 ### Security
+* **Executable route cache:** Documented that route caches are executable PHP files and must be stored at a trusted, non-user-controlled path protected from writes by untrusted users or services.
 * **Proxy headers:** Forwarding headers are now accepted only when `REMOTE_ADDR` matches an IP explicitly configured through `HttpUtils::setTrustedProxies()`; applications must also configure allowed header names with `setTrustedProxyHeaders()`.
 
 ### Removed
+* **Mutable route declarations:** Removed `Route::setPath()`, `Route::setVarsRegex()`, and `Route::getVarRegex()`. Route methods and paths are now immutable, and variable regex parsing is internal compiler state.
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.
 * **Legacy variable types:** Removed `letters`, `num`, `any`, and `all`; use `alpha`, `uint`, `segment`, and `path` respectively.
 
