@@ -144,6 +144,8 @@ Variables use the strict `{name:type}` syntax. A variable name must:
 
 Conversely, every required controller parameter must have a matching route variable. Optional controller parameters are allowed. Invalid declarations are rejected when routes are compiled.
 
+Captured URL values are strings after URL decoding. During route compilation, KnRoute reads the matching controller parameter types and stores the required scalar conversions in the route cache. Parameters declared as `int`, `float`, or `bool` are cast accordingly at execution time; parameters declared as `string` or without a type remain strings. No reflection or type inspection is performed while handling a cached request.
+
 ```php
 #[Post('/amd/{id:uint}/ryzen/{model:alnum}')]
 public function topSecret(int $id, string $model): void

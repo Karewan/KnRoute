@@ -63,6 +63,14 @@ try {
 	assertSame([], $typedAction[2] ?? null, 'cached typed route middlewares');
 	assertSame(['id' => 'int'], $typedAction[3] ?? null, 'cached argument conversion plan');
 
+	$scalarAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedScalars');
+	assertTrue(is_array($scalarAction), 'cached scalar route action');
+	assertSame([
+		'integer' => 'int',
+		'decimal' => 'float',
+		'flag' => 'bool',
+	], $scalarAction[3] ?? null, 'cached scalar argument conversion plan');
+
 	$cache[4] = 1;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);

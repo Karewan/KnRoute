@@ -17,6 +17,7 @@ $tests = [
 	['Explicit HEAD matches its route without a body', 'HEAD', '/explicit-head', 200, '', ROUTING_CONTROLLER, 'explicitHead', [], ['cache-control', 'pragma', 'expires']],
 	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions', ['allow' => 'OPTIONS', 'cache-control' => 'no-store']],
 	['Numeric parameter is coerced to a typed integer', 'GET', '/typed/42', 200, 'int:42', ROUTING_CONTROLLER, 'typedInteger'],
+	['Controller scalar types drive compiled argument casts', 'GET', '/typed-scalars/-42/3.5/0/text/raw', 200, 'int:-42|float:3.5|bool:false|string:text|string:raw', ROUTING_CONTROLLER, 'typedScalars'],
 	['Variable regex types accept valid values', 'GET', '/variables/Alpha/letters/a-slug/DeadBeef/value', 200, 'Alpha|letters|a-slug|DeadBeef|value', ROUTING_CONTROLLER, 'variableTypes'],
 	['Variable regex types reject invalid values', 'GET', '/variables/Alpha/letters/not_ok/deadbeef/value', 404, '', null, null],
 	['Strict variable types accept valid values', 'GET', '/strict-variables/A1b2/-42/42/550e8400-e29b-41d4-a716-446655440000/a+b/path/to/file', 200, 'A1b2|-42|42|550e8400-e29b-41d4-a716-446655440000|a+b|path/to/file', ROUTING_CONTROLLER, 'strictVariableTypes'],

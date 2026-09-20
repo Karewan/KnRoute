@@ -81,6 +81,18 @@ class RoutingController
 		echo get_debug_type($id) . ":{$id}";
 	}
 
+	#[Get('/typed-scalars/{integer:int}/{decimal:segment}/{flag:segment}/{text:segment}/{raw:segment}')]
+	public function typedScalars(int $integer, float $decimal, bool $flag, string $text, $raw): void
+	{
+		echo implode('|', [
+			get_debug_type($integer) . ":{$integer}",
+			get_debug_type($decimal) . ":{$decimal}",
+			get_debug_type($flag) . ':' . ($flag ? 'true' : 'false'),
+			get_debug_type($text) . ":{$text}",
+			get_debug_type($raw) . ":{$raw}",
+		]);
+	}
+
 	#[Get('/variables/{first:alpha}/{second:alpha}/{slug:slug}/{hex:hex}/{value:segment}')]
 	public function variableTypes(string $first, string $second, string $slug, string $hex, string $value): void
 	{
