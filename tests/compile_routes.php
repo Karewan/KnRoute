@@ -7,6 +7,11 @@ use Karewan\KnRoute\Router;
 const PROJECT_ROOT = __DIR__ . '/..';
 
 spl_autoload_register(static function (string $class): void {
+	if ($class === 'Tests\\Fixtures\\ClassmapMismatch\\MismatchedController') {
+		require __DIR__ . '/Fixtures/ClassmapMismatchLoaded/MismatchedController.php';
+		return;
+	}
+
 	$prefixes = [
 		'Karewan\\KnRoute\\' => PROJECT_ROOT . '/src/',
 		'Tests\\Fixtures\\' => __DIR__ . '/Fixtures/'

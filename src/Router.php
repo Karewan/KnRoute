@@ -376,8 +376,16 @@ class Router
 	{
 		$routes = [];
 
-		foreach ($this->findAllClass($controllerFiles) as $class) {
+		foreach ($this->findAllClass($controllerFiles) as [$class, $file]) {
 			$controller = new ReflectionClass($class);
+			if (realpath($controller->getFileName() ?: '') !== realpath($file)) {
+				throw new LogicException(sprintf(
+					'Controller %s was loaded from "%s" instead of scanned file "%s"',
+					$class,
+					$controller->getFileName() ?: '[internal]',
+					$file
+				));
+			}
 			if ($controller->isAbstract()) {
 				continue;
 			}
@@ -561,7 +569,7 @@ class Router
 	/**
 	 * Find all class in a folder
 	 * @param string[] $controllerFiles
-	 * @return string[]
+	 * @return array<int,array{string,string}>
 	 */
 	private function findAllClass(array $controllerFiles): array
 	{
@@ -615,7 +623,7 @@ class Router
 				throw new LogicException(sprintf('Controller file "%s" must declare at most one named class', $file));
 			}
 			if ($fileTypes) {
-				$types[] = $fileTypes[0];
+				$types[] = [$fileTypes[0], $file];
 			}
 		}
 

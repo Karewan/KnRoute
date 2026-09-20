@@ -77,6 +77,7 @@ $compilationTests = [
 	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class],
 	['Route paths must not end with a slash', 'InvalidTrailingSlash', InvalidArgumentException::class],
 	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class],
+	['Classes loaded from a different file are rejected', 'ClassmapMismatch', LogicException::class],
 	['Variables require a type', 'InvalidVariableMissingType', LogicException::class],
 	['Variable names must be valid', 'InvalidVariableName', LogicException::class],
 	['Variable names have a bounded length', 'InvalidVariableNameLength', LogicException::class],
