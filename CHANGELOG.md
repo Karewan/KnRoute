@@ -11,6 +11,10 @@ v4.0.0 (unreleased)
 * **Case-sensitive routes:** Request paths are no longer converted to lowercase before route matching.
 * **HEAD and OPTIONS semantics:** HEAD now falls back to GET without a response body, automatic OPTIONS responses advertise the available methods, and invalid HEAD requests correctly return HTTP 405.
 * **HTTP method routing:** Explicit routes now take priority over `Any`, conflicting routes and invalid method tokens are rejected during compilation, and unsupported methods return HTTP 501.
+* **Routes cache:** Cache invalidation now detects controller additions, deletions, and content changes; writes clean up temporary files and invalidate OPcache after atomic replacement.
+
+### Security
+* **Proxy headers:** No proxy IP header is trusted by default; applications must explicitly configure trusted headers with `HttpUtils::setTrustedProxyHeaders()`.
 
 ### Removed
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.

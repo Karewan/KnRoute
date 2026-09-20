@@ -22,6 +22,9 @@
 		}
 	},
 	"scripts": {
-		"test": "php tests/run.php"
+		"test": [
+			"php tests/run.php",
+			"php tests/cache_behavior.php"
+		]
 	}
 }

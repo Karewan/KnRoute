@@ -172,18 +172,33 @@ class Router
 	 */
 	public function registerRoutesFromControllers(string $controllersPath, ?string $cacheFile, bool $scanForModifiedControllers = false): void
 	{
-		if (
-			!is_null($cacheFile) &&
-			is_file($cacheFile) &&
-			(!$scanForModifiedControllers || !$this->hasModifiedControllers($controllersPath, $cacheFile))
-		) {
-			$this->setCompiledRoutes(require $cacheFile);
-			return;
+		if (!is_null($cacheFile) && is_file($cacheFile)) {
+			$cachedRoutes = require $cacheFile;
+			if (!is_array($cachedRoutes)) {
+				throw new RuntimeException(sprintf('Invalid routes cache file "%s"', $cacheFile));
+			}
+
+			// Production hot path: load the cache without touching the controllers directory.
+			if (!$scanForModifiedControllers) {
+				$this->setCompiledRoutes($cachedRoutes);
+				return;
+			}
+
+			$controllerFiles = $this->findControllerFiles($controllersPath);
+			$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
+			if (($cachedRoutes[4] ?? null) === $controllersSignature) {
+				$this->setCompiledRoutes($cachedRoutes);
+				return;
+			}
 		}
 
-		$routes = $this->findRoutesFromControllers($controllersPath);
+		$controllerFiles ??= $this->findControllerFiles($controllersPath);
+		$controllersSignature ??= $this->getControllersSignature($controllersPath, $controllerFiles);
+		$routes = $this->findRoutesFromControllers($controllerFiles);
 		$routeDumper = new RoutesDumper($routes);
-		$this->setCompiledRoutes($routeDumper->getCompiledRoutes());
+		$compiledRoutes = $routeDumper->getCompiledRoutes();
+		$compiledRoutes[4] = $controllersSignature;
+		$this->setCompiledRoutes($compiledRoutes);
 
 		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
 	}
@@ -200,22 +215,44 @@ class Router
 	}
 
 	/**
-	 * Has modified controllers
+	 * Find controller PHP files in deterministic order.
 	 * @param string $controllersPath
-	 * @param string $cacheFile
-	 * @return bool
+	 * @return string[]
 	 */
-	private function hasModifiedControllers(string $controllersPath, string $cacheFile): bool
+	private function findControllerFiles(string $controllersPath): array
 	{
-		$lastModified = 0;
+		$files = [];
 
 		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($controllersPath)) as $f) {
-			if (!$f->isFile()) continue;
-			$mt = $f->getMTime();
-			if ($mt > $lastModified) $lastModified = $mt;
+			if ($f->isFile() && $f->getExtension() === 'php') {
+				$files[] = $f->getRealPath();
+			}
 		}
 
-		return $lastModified > (@filemtime($cacheFile) ?: 0);
+		sort($files, SORT_STRING);
+		return $files;
+	}
+
+	/**
+	 * Return a content-based signature that detects additions, removals and edits.
+	 * @param string $controllersPath
+	 * @param string[] $controllerFiles
+	 * @return string
+	 */
+	private function getControllersSignature(string $controllersPath, array $controllerFiles): string
+	{
+		$context = hash_init('xxh128');
+		$baseLength = strlen(rtrim($controllersPath, '/\\')) + 1;
+
+		foreach ($controllerFiles as $file) {
+			hash_update($context, substr($file, $baseLength) . "\0");
+			if (!hash_update_file($context, $file)) {
+				throw new RuntimeException(sprintf('Failed to hash controller "%s"', $file));
+			}
+			hash_update($context, "\0");
+		}
+
+		return hash_final($context);
 	}
 
 	/**
@@ -237,12 +274,20 @@ class Router
 			throw new RuntimeException(sprintf('Failed to create the tmp cache file'));
 		}
 
-		if (file_put_contents($tmpFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';') === false) {
-			throw new RuntimeException(sprintf('Failed to write the tmp cache file'));
-		}
+		try {
+			if (file_put_contents($tmpFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';', LOCK_EX) === false) {
+				throw new RuntimeException('Failed to write the temporary routes cache file');
+			}
 
-		if (!rename($tmpFile, $cacheFile)) {
-			throw new RuntimeException(sprintf('Failed to rename the tmp cache file'));
+			if (!rename($tmpFile, $cacheFile)) {
+				throw new RuntimeException(sprintf('Failed to replace routes cache file "%s"', $cacheFile));
+			}
+
+			if (function_exists('opcache_invalidate')) {
+				opcache_invalidate($cacheFile, true);
+			}
+		} finally {
+			if (is_file($tmpFile)) unlink($tmpFile);
 		}
 	}
 
@@ -253,7 +298,7 @@ class Router
 	 */
 	public function dumpRoutesFromController(string $controllersPath): string
 	{
-		$routes = $this->findRoutesFromControllers($controllersPath);
+		$routes = $this->findRoutesFromControllers($this->findControllerFiles($controllersPath));
 
 		usort($routes, fn(Route $a, Route $b): int => strnatcmp($a->getPath(), $b->getPath()));
 
@@ -286,14 +331,14 @@ class Router
 
 	/**
 	 * Find routes in path
-	 * @param string $controllersPath
+	 * @param string[] $controllerFiles
 	 * @return Route[]
 	 */
-	private function findRoutesFromControllers(string $controllersPath): array
+	private function findRoutesFromControllers(array $controllerFiles): array
 	{
 		$routes = [];
 
-		foreach ($this->findAllClass($controllersPath) as $class) {
+		foreach ($this->findAllClass($controllerFiles) as $class) {
 			$controller = new ReflectionClass($class);
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
@@ -310,20 +355,21 @@ class Router
 
 	/**
 	 * Find all class in a folder
-	 * @param string $path
+	 * @param string[] $controllerFiles
 	 * @return string[]
 	 */
-	private function findAllClass(string $path): array
+	private function findAllClass(array $controllerFiles): array
 	{
 		$tokens = [];
 		$types = [];
-		$namespace = '';
 
-		/** @var SplFileInfo */
-		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path)) as $file) {
-			if ($file->getExtension() !== 'php') continue;
-
-			$tokens = token_get_all(file_get_contents($file->getRealPath()));
+		foreach ($controllerFiles as $file) {
+			$namespace = '';
+			$content = file_get_contents($file);
+			if ($content === false) {
+				throw new RuntimeException(sprintf('Failed to read controller "%s"', $file));
+			}
+			$tokens = token_get_all($content);
 			$numTokens = count($tokens);
 
 			for ($i = 0; $i < $numTokens; $i++) {

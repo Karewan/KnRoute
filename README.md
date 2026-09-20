@@ -53,7 +53,7 @@ declare(strict_types=1);
 
 use Karewan\KnRoute\Router;
 
-// DEV / PROD env
+// Must be false in production
 const IS_DEV = true;
 
 // Init the router
@@ -63,15 +63,19 @@ $router = new Router();
 $router->registerRoutesFromControllers(
 	// Folder to be scanned
 	controllersPath: __DIR__ . '/App/Controllers',
-	// Use cache only for prod (do not forget to clear cache after deploy) or use in dev with scanForModifiedControllers set to true
-	cacheFile: __DIR__ . '/tmp/cache.php'
-	// Optional parameter, default to false, for using the cache file in dev mode (avoid the heavy controllers scanning each time)
+	// Compiled routes cache
+	cacheFile: __DIR__ . '/tmp/cache.php',
+	// Development only: invalidate the cache when controller contents change
 	scanForModifiedControllers: IS_DEV
 );
 
 // Run the router (nothing will be executed below this line)
 $router->run();
 ```
+
+In production, always leave `scanForModifiedControllers` set to `false` (its default). When the cache file exists, KnRoute loads it directly without scanning or reading the controllers directory. Generate or warm the cache during deployment and replace it whenever controllers change.
+
+In development, set `scanForModifiedControllers` to `true`. KnRoute compares a fast content-based signature of the controller files with the signature stored in the cache. Unchanged routes are loaded from cache without repeating tokenization, reflection, attribute construction, or route compilation. This development check still reads the controller files and must not be enabled in production.
 
 ### Different types of routes
 
