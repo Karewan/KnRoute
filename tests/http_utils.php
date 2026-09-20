@@ -75,6 +75,8 @@ namespace {
 
 	HttpUtils::setTrustedProxies(['192.0.2.11']);
 	$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7, 192.0.2.11';
+	assertSame('192.0.2.11', HttpUtils::getIp(), 'forwarding headers are not trusted by default');
+	HttpUtils::setTrustedProxyHeaders(['x-forwarded-for']);
 	assertSame('203.0.113.7', HttpUtils::getIp(), 'trusted proxy header');
 
 	HttpUtils::setTrustedProxies(['192.0.2.12', '192.0.2.11', '2001:db8:1234::10', '2001:db8:1234::11']);
@@ -88,9 +90,11 @@ namespace {
 	assertSame('2001:db8:ffff::20', HttpUtils::getIp(), 'IPv6 proxy chain');
 	unset($_SERVER['HTTP_X_FORWARDED_FOR']);
 	$_SERVER['HTTP_FORWARDED'] = 'for="[2001:db8:ffff::21]:443";proto=https, for="[2001:db8:1234::11]"';
+	HttpUtils::setTrustedProxyHeaders(['Forwarded']);
 	assertSame('2001:db8:ffff::21', HttpUtils::getIp(), 'standard Forwarded header');
 	unset($_SERVER['HTTP_FORWARDED']);
 	$_SERVER['HTTP_CF_CONNECTING_IP'] = '198.51.100.10';
+	HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP']);
 	assertSame('198.51.100.10', HttpUtils::getIp(), 'common CDN client IP header');
 
 	$_SERVER['REMOTE_ADDR'] = '192.0.2.12';
@@ -108,9 +112,16 @@ namespace {
 		throw new RuntimeException('Invalid trusted proxy was accepted.');
 	} catch (\InvalidArgumentException) {
 	}
+	try {
+		HttpUtils::setTrustedProxyHeaders(['Invalid Header']);
+		throw new RuntimeException('Invalid trusted proxy header was accepted.');
+	} catch (\InvalidArgumentException) {
+	}
 
 	$_SERVER = [];
 	assertSame('/', HttpUtils::getPath(), 'missing request URI');
+	$_SERVER['REQUEST_URI'] = 'http://[';
+	assertSame('/', HttpUtils::getPath(), 'malformed request URI');
 	assertSame('', HttpUtils::getMethod(), 'missing request method');
 	assertSame('', HttpUtils::getProtocol(), 'missing server protocol');
 	assertSame('', HttpUtils::getQueryString(), 'missing query string');

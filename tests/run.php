@@ -5,6 +5,9 @@ declare(strict_types=1);
 const ROUTING_CONTROLLER = 'Tests\\Fixtures\\Controllers\\RoutingController';
 const MIDDLEWARE_CONTROLLER = 'Tests\\Fixtures\\Controllers\\MiddlewareController';
 
+$aboveIntegerMaximum = incrementDecimal((string) PHP_INT_MAX);
+$belowIntegerMinimum = '-' . incrementDecimal(substr((string) PHP_INT_MIN, 1));
+
 $tests = [
 	['GET matches a static route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
 	['GET matches a dynamic route', 'GET', '/users/42', 200, 'user:42', ROUTING_CONTROLLER, 'user'],
@@ -20,6 +23,12 @@ $tests = [
 	['Controller scalar types drive compiled argument casts', 'GET', '/typed-scalars/-42/3.5/0/text/raw', 200, 'int:-42|float:3.5|bool:false|string:text|string:raw', ROUTING_CONTROLLER, 'typedScalars'],
 	['A string-compatible union preserves the URL string', 'GET', '/typed-union/42', 200, 'string:42', ROUTING_CONTROLLER, 'typedStringUnion'],
 	['A nullable scalar uses its unambiguous compiled cast', 'GET', '/typed-nullable/-42', 200, 'int:-42', ROUTING_CONTROLLER, 'typedNullableInteger'],
+	['int accepts the platform maximum', 'GET', '/bounded-int/' . PHP_INT_MAX, 200, 'int:' . PHP_INT_MAX, ROUTING_CONTROLLER, 'boundedInteger'],
+	['int accepts the platform minimum', 'GET', '/bounded-int/' . PHP_INT_MIN, 200, 'int:' . PHP_INT_MIN, ROUTING_CONTROLLER, 'boundedInteger'],
+	['uint accepts the platform maximum', 'GET', '/bounded-uint/' . PHP_INT_MAX, 200, 'uint:' . PHP_INT_MAX, ROUTING_CONTROLLER, 'boundedUnsignedInteger'],
+	['int rejects overflow above the platform maximum', 'GET', '/bounded-int/' . $aboveIntegerMaximum, 404, '', null, null],
+	['int rejects overflow below the platform minimum', 'GET', '/bounded-int/' . $belowIntegerMinimum, 404, '', null, null],
+	['uint rejects overflow above the platform maximum', 'GET', '/bounded-uint/' . $aboveIntegerMaximum, 404, '', null, null],
 	['Variable regex types accept valid values', 'GET', '/variables/Alpha/letters/a-slug/DeadBeef/value', 200, 'Alpha|letters|a-slug|DeadBeef|value', ROUTING_CONTROLLER, 'variableTypes'],
 	['Variable regex types reject invalid values', 'GET', '/variables/Alpha/letters/not_ok/deadbeef/value', 404, '', null, null],
 	['Strict variable types accept valid values', 'GET', '/strict-variables/A1b2/-42/42/550e8400-e29b-41d4-a716-446655440000/a+b/path/to/file', 200, 'A1b2|-42|42|550e8400-e29b-41d4-a716-446655440000|a+b|path/to/file', ROUTING_CONTROLLER, 'strictVariableTypes'],
@@ -168,6 +177,18 @@ foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException]) {
 
 echo sprintf("\n%d tests, %d failures\n", $assertions, $failures);
 exit($failures === 0 ? 0 : 1);
+
+function incrementDecimal(string $value): string
+{
+	for ($i = strlen($value) - 1; $i >= 0; $i--) {
+		if ($value[$i] !== '9') {
+			$value[$i] = (string) ((int) $value[$i] + 1);
+			return $value;
+		}
+		$value[$i] = '0';
+	}
+	return '1' . $value;
+}
 
 /**
  * @return array{status: int, output: string, controller: ?string, action: ?string, headers: array<string,string>, exitCode: int, diagnostics: string}

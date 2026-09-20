@@ -105,6 +105,18 @@ class RoutingController
 		echo get_debug_type($value) . ":{$value}";
 	}
 
+	#[Get('/bounded-int/{value:int}')]
+	public function boundedInteger(int $value): void
+	{
+		echo "int:{$value}";
+	}
+
+	#[Get('/bounded-uint/{value:uint}')]
+	public function boundedUnsignedInteger(int $value): void
+	{
+		echo "uint:{$value}";
+	}
+
 	#[Get('/variables/{first:alpha}/{second:alpha}/{slug:slug}/{hex:hex}/{value:segment}')]
 	public function variableTypes(string $first, string $second, string $slug, string $hex, string $value): void
 	{

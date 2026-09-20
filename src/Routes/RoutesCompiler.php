@@ -31,8 +31,6 @@ class RoutesCompiler
 	private const array VAR_REGEX = [
 		'alpha' => '[A-Za-z]+',
 		'alnum' => '[A-Za-z0-9]+',
-		'uint' => '(?:0|[1-9][0-9]*)',
-		'int' => '(?:0|-?[1-9][0-9]*)',
 		'hex' => '[A-Fa-f0-9]+',
 		'slug' => '[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*',
 		'uuid' => '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}',
@@ -93,14 +91,23 @@ class RoutesCompiler
 					$pattern
 				));
 			}
-			if (!isset(self::VAR_REGEX[$type])) {
+			$regexp = match ($type) {
+				'uint' => self::unsignedIntegerRegex((string) PHP_INT_MAX),
+				'int' => sprintf(
+					'(?:0|%s|-(?:%s))',
+					self::positiveIntegerRegex((string) PHP_INT_MAX),
+					self::positiveIntegerRegex(substr((string) PHP_INT_MIN, 1))
+				),
+				default => self::VAR_REGEX[$type] ?? null,
+			};
+			if ($regexp === null) {
 				throw new LogicException(sprintf('Unknown variable type "%s" for "%s" in route pattern "%s".', $type, $name, $pattern));
 			}
 			if (isset($varsRegex[$name])) {
 				throw new LogicException(sprintf('Route pattern "%s" cannot reference variable name "%s" more than once.', $pattern, $name));
 			}
 
-			$varsRegex[$name] = self::VAR_REGEX[$type];
+			$varsRegex[$name] = $regexp;
 			$normalizedPattern .= substr($pattern, $offset, $start - $offset) . '{' . $name . '}';
 			$offset = $end + 1;
 		}
@@ -108,6 +115,32 @@ class RoutesCompiler
 		$normalizedPattern .= substr($pattern, $offset);
 
 		return [$normalizedPattern, $varsRegex];
+	}
+
+	private static function unsignedIntegerRegex(string $maximum): string
+	{
+		return '(?:0|' . self::positiveIntegerRegex($maximum) . ')';
+	}
+
+	/** Build a decimal regexp for the inclusive range 1..$maximum. */
+	private static function positiveIntegerRegex(string $maximum): string
+	{
+		$length = strlen($maximum);
+		$patterns = $length > 1 ? ['[1-9][0-9]{0,' . ($length - 2) . '}'] : [];
+
+		for ($i = 0; $i < $length; $i++) {
+			$upper = (int) $maximum[$i] - 1;
+			$lower = $i === 0 ? 1 : 0;
+			if ($upper < $lower) continue;
+
+			$prefix = substr($maximum, 0, $i);
+			$digit = $upper === $lower ? (string) $lower : "[{$lower}-{$upper}]";
+			$remaining = $length - $i - 1;
+			$patterns[] = $prefix . $digit . ($remaining > 0 ? '[0-9]{' . $remaining . '}' : '');
+		}
+
+		$patterns[] = $maximum;
+		return '(?:' . implode('|', $patterns) . ')';
 	}
 
 	/**

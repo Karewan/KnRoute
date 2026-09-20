@@ -24,7 +24,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 6;
+	private const int CACHE_FORMAT_VERSION = 7;
 
 	/**
 	 * Compiled routes
@@ -57,7 +57,7 @@ class Router
 	 */
 	public function run(): never
 	{
-		$requestMethod = $_SERVER['REQUEST_METHOD'];
+		$requestMethod = HttpUtils::getMethod();
 
 		try {
 			// The route. Keep ordinary methods on the shortest possible hot path.

@@ -8,15 +8,8 @@ use InvalidArgumentException;
 
 class HttpUtils
 {
-	/** Headers commonly used by reverse proxies and CDNs to expose the client address. */
-	private const array FORWARDED_IP_HEADERS = [
-		'Forwarded',
-		'X-Forwarded-For',
-		'CF-Connecting-IP',
-		'True-Client-IP',
-		'Fastly-Client-IP',
-		'X-Real-IP',
-	];
+	/** @var string[] */
+	private static array $trustedProxyHeaders = [];
 
 	/** @var array<string,true> */
 	private static array $trustedProxies = [];
@@ -43,7 +36,8 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
+		$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+		if (!is_string($path)) $path = '';
 		return $path === '*' ? '*' : '/' . trim($path, '/');
 	}
 
@@ -209,6 +203,22 @@ class HttpUtils
 			$trustedProxies[$proxy] = true;
 		}
 		self::$trustedProxies = $trustedProxies;
+	}
+
+	/**
+	 * Set the forwarding headers allowed to provide the client address.
+	 * @param string[] $headers
+	 */
+	public static function setTrustedProxyHeaders(array $headers): void
+	{
+		$trustedProxyHeaders = [];
+		foreach ($headers as $header) {
+			if (!is_string($header) || !preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $header)) {
+				throw new InvalidArgumentException(sprintf('Trusted proxy header "%s" must be a valid HTTP header name', is_scalar($header) ? (string) $header : get_debug_type($header)));
+			}
+			$trustedProxyHeaders[self::normalizeHeaderName($header)] = true;
+		}
+		self::$trustedProxyHeaders = array_keys($trustedProxyHeaders);
 	}
 
 	/**
@@ -405,7 +415,7 @@ class HttpUtils
 		$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 		if (!self::isTrustedProxy($remoteAddress)) return $remoteAddress;
 
-		foreach (self::FORWARDED_IP_HEADERS as $header) {
+		foreach (self::$trustedProxyHeaders as $header) {
 			$headerValue = self::getHeader($header);
 			if ($headerValue === '') continue;
 

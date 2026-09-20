@@ -17,7 +17,7 @@ v4.0.0 (unreleased)
 * **Matched route accessors:** Renamed `Router::getFindedController()` and `Router::getFindedMethod()` to `getMatchedController()` and `getMatchedMethod()`.
 * **XML responses:** `HttpUtils::outputXml()` now uses the `application/xml` media type.
 * **XHR detection:** Removed the global `IS_XHR` constant in favor of `HttpUtils::isXmlHttpRequest()`.
-* **Trusted proxies:** Common forwarding headers are now recognized automatically, and forwarding chains are resolved securely from right to left.
+* **Trusted proxies:** Allowed forwarding headers can be configured with `HttpUtils::setTrustedProxyHeaders()`, and forwarding chains are resolved securely from right to left.
 * **Optional server values:** `HttpUtils` now handles missing request metadata safely; content length and port accessors return `null` for missing or invalid values.
 * **Host handling:** `HttpUtils::getHost()` now handles IPv6 literals, always excludes the server port, and no longer accepts a port-retention parameter.
 * **JSON output:** `HttpUtils::outputJson()` now throws on encoding errors and exposes the `json_encode()` flags and depth parameters; JSON request decoding remains permissive.
@@ -27,6 +27,8 @@ v4.0.0 (unreleased)
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
+* **Integer route bounds:** `int` and `uint` variables now reject values outside the platform integer range in their compiled expressions, preventing overflow without adding production cache overhead.
+* **Malformed request URIs:** `HttpUtils::getPath()` now handles `parse_url()` failures safely.
 * **Controller file validation:** Route compilation now verifies that each discovered controller was actually autoloaded from the scanned file, rejecting stale or incorrect Composer classmaps without adding work to the cached production path.
 * **Encoded segment separators:** The `segment` route type now rejects percent-encoded `/` characters before captured values are decoded; cached routes are invalidated automatically.
 * **Controller signature validation:** Route compilation now rejects non-instantiable controllers, constructors with required arguments, static or lifecycle actions, by-reference route parameters, incompatible named or union types, and route-backed variadic parameters. Compatible union conversions remain precompiled in the route cache.

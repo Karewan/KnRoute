@@ -176,7 +176,7 @@ Matching is performed against the encoded request path. Captured values are then
 | `segment` | One non-empty path segment; `/` is excluded | `file.txt`, `a+b` |
 | `path` | A non-empty value that may contain `/` | `images/icons/logo.svg` |
 
-`uint` and `int` reject leading zeroes such as `042`; `int` also rejects `-0`. `slug` rejects leading, trailing, and consecutive hyphens. Use `path` only as the final variable unless the following static text makes the intended boundary unambiguous.
+`uint` and `int` reject leading zeroes such as `042` and values outside the platform's integer range; `int` also rejects `-0`. These bounds are embedded in the compiled route expressions, including cached routes. `slug` rejects leading, trailing, and consecutive hyphens. Use `path` only as the final variable unless the following static text makes the intended boundary unambiguous.
 
 ### Create a middleware
 
@@ -352,6 +352,7 @@ function getAcceptEncoding(): string;
 function getReferer(): string;
 function isXmlHttpRequest(): bool;
 function setTrustedProxies(array $proxies): void;
+function setTrustedProxyHeaders(array $headers): void;
 function getIp(): string;
 function getServerPort(): ?int;
 function getClientPort(): ?int;
@@ -382,9 +383,10 @@ No proxy address is trusted by default. If the application runs behind trusted r
 
 ```php
 HttpUtils::setTrustedProxies(['10.0.0.10', '10.0.0.11', '2001:db8::10']);
+HttpUtils::setTrustedProxyHeaders(['Forwarded', 'X-Forwarded-For']);
 ```
 
-`getIp()` recognizes the standard `Forwarded` header and the commonly deployed `X-Forwarded-For`, `CF-Connecting-IP`, `True-Client-IP`, `Fastly-Client-IP`, and `X-Real-IP` headers. They are ignored unless `REMOTE_ADDR` belongs to a configured trusted proxy. Proxy chains are traversed from right to left and stop at the first untrusted address, preventing client-supplied entries to its left from being trusted. Your edge proxy must overwrite or remove these headers before forwarding requests.
+Forwarding headers are disabled by default and must be explicitly allowed with `setTrustedProxyHeaders()`. `getIp()` supports both the standard `Forwarded` syntax and comma-separated address lists used by headers such as `X-Forwarded-For` and `CF-Connecting-IP`. They are ignored unless `REMOTE_ADDR` belongs to a configured trusted proxy. Proxy chains are traversed from right to left and stop at the first untrusted address, preventing client-supplied entries to its left from being trusted. Your edge proxy must overwrite or remove these headers before forwarding requests.
 
 ## Tests
 
