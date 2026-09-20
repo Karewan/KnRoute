@@ -146,7 +146,7 @@ namespace {
 	ob_start();
 	HttpUtils::outputText('test response');
 	assertSame('test response', ob_get_clean(), 'text output returns after writing response');
-	assertSame('void', (string) (new ReflectionMethod(HttpUtils::class, 'dieStatus'))->getReturnType(), 'status helper returns control');
+	assertSame('void', (string) (new ReflectionMethod(HttpUtils::class, 'setStatus'))->getReturnType(), 'status helper returns control');
 
 	echo "PASS  HttpUtils is stateless and normalizes headers and trusted proxies\n";
 

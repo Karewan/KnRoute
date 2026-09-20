@@ -10,8 +10,10 @@ use Karewan\KnRoute\IMiddleware;
 #[Attribute(Attribute::TARGET_METHOD)]
 class MethodMiddleware implements IMiddleware
 {
-	public function handle(): void
+	public function before(): void
 	{
 		echo 'method>';
 	}
+
+	public function after(): void {}
 }

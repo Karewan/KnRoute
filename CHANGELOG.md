@@ -8,7 +8,9 @@ v4.0.0 (unreleased)
 * **Cache format tests:** Added explicit coverage for cached execution metadata, middleware plans, argument conversions, legacy cache regeneration, and cached/uncached parity across every routing scenario.
 
 ### Changed
+* **Middleware lifecycle:** Replaced `IMiddleware::handle()` with `before()` and `after()`. After hooks run in reverse order even when the controller action throws. A failure in either middleware hook stops execution immediately and propagates unchanged from `Router::run()`.
 * **Testable response flow:** Removed process-terminating `die()` calls from `Router::run()` and the `HttpUtils` response helpers. They now return control to the caller after setting the response status, headers, and body, allowing applications to unit-test complete routing flows in-process.
+* **HTTP status helper:** Renamed `HttpUtils::dieStatus()` to `HttpUtils::setStatus()` now that setting a response status no longer terminates the PHP process.
 * **Package versioning:** Removed the hardcoded version from `composer.json`; Composer and Packagist now infer releases from VCS tags.
 * **Route dumper:** Removed unused recursion state and obsolete host-matching code from `RoutesDumper`.
 * **Cached route execution:** Controller and method middleware metadata and scalar argument conversions are now precompiled into the route cache, removing reflection and `invokeArgs()` from the production request path.

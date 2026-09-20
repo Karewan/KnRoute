@@ -7,6 +7,7 @@ namespace Karewan\KnRoute;
 use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
+use Karewan\KnRoute\Exceptions\MiddlewareExecutionException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
 use Closure;
 use RecursiveDirectoryIterator;
@@ -19,6 +20,7 @@ use ReflectionParameter;
 use ReflectionUnionType;
 use LogicException;
 use RuntimeException;
+use Throwable;
 
 class Router
 {
@@ -37,7 +39,8 @@ class Router
 
 	private bool $acceptsAnyMethod = false;
 
-	private ?Closure $globalMiddlewareRunner = null;
+	/** @var IMiddleware[] */
+	private array $globalMiddlewares = [];
 
 	/**
 	 * The matched controller
@@ -61,20 +64,19 @@ class Router
 		$headOutputBufferLevel = null;
 
 		try {
-			// The route. Keep ordinary methods on the shortest possible hot path.
-			switch ($requestMethod) {
+			$this->runMiddlewareStack($this->globalMiddlewares, function () use ($requestMethod, &$headOutputBufferLevel): void {
+				// The route. Keep ordinary methods on the shortest possible hot path.
+				switch ($requestMethod) {
 				case 'HEAD':
 					// A HEAD response must never contain a body, including for explicit HEAD routes.
 					$headOutputBufferLevel = ob_get_level();
 					ob_start(static fn(): string => '');
-					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findHeadRoute(HttpUtils::getPath());
 					break;
 
 				case 'OPTIONS':
 					// OPTIONS responses are not cacheable.
 					header('Cache-Control: no-store');
-					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findOptionsRoute(HttpUtils::getPath());
 					if (is_null($route)) return;
 					break;
@@ -84,43 +86,49 @@ class Router
 				case 'PUT':
 				case 'PATCH':
 				case 'DELETE':
-					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
 					break;
 
 				default:
-					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					if (!$this->acceptsAnyMethod && !isset($this->knownMethods[$requestMethod])) {
 						http_response_code(501);
 						return;
 					}
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
-			}
+				}
 
-			// The controller, method and execution metadata are all precompiled in the route cache.
-			$this->matchedController = $route[0];
-			$this->matchedMethod = $route[1];
-			$middlewares = $route[2];
-			$argumentConverters = $route[3];
-			unset($route[0], $route[1], $route[2], $route[3]);
+				// The controller, method and execution metadata are all precompiled in the route cache.
+				$this->matchedController = $route[0];
+				$this->matchedMethod = $route[1];
+				$middlewareDefinitions = $route[2];
+				$argumentConverters = $route[3];
+				unset($route[0], $route[1], $route[2], $route[3]);
 
-			foreach ($middlewares as [$middleware, $arguments]) {
-				(new $middleware(...$arguments))->handle();
-			}
+				$middlewares = [];
+				foreach ($middlewareDefinitions as [$middleware, $arguments]) {
+					$middlewares[] = new $middleware(...$arguments);
+				}
 
-			$controllerInstance = new $this->matchedController;
+				foreach ($route as $name => $value) {
+					$value = rawurldecode($value);
+					$route[$name] = match ($argumentConverters[$name] ?? null) {
+						'int' => (int) $value,
+						'float' => (float) $value,
+						'bool' => (bool) $value,
+						default => $value,
+					};
+				}
 
-			foreach ($route as $name => $value) {
-				$value = rawurldecode($value);
-				$route[$name] = match ($argumentConverters[$name] ?? null) {
-					'int' => (int) $value,
-					'float' => (float) $value,
-					'bool' => (bool) $value,
-					default => $value,
-				};
-			}
-
-			$controllerInstance->{$this->matchedMethod}(...$route);
+				$this->runMiddlewareStack(
+					$middlewares,
+					function () use ($route): void {
+						$controllerInstance = new $this->matchedController;
+						$controllerInstance->{$this->matchedMethod}(...$route);
+					}
+				);
+			});
+		} catch (MiddlewareExecutionException $e) {
+			throw $e->getMiddlewareException();
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
 			http_response_code(405);
@@ -158,13 +166,43 @@ class Router
 	 */
 	public function addGlobalMiddleware(IMiddleware $middleware): void
 	{
-		$previous = $this->globalMiddlewareRunner;
-		$this->globalMiddlewareRunner = is_null($previous)
-			? $middleware->handle(...)
-			: static function () use ($previous, $middleware): void {
-				$previous();
-				$middleware->handle();
-			};
+		$this->globalMiddlewares[] = $middleware;
+	}
+
+	/**
+	 * Execute middleware hooks around an action.
+	 * @param IMiddleware[] $middlewares
+	 */
+	private function runMiddlewareStack(array $middlewares, Closure $action): void
+	{
+		foreach ($middlewares as $middleware) {
+			try {
+				$middleware->before();
+			} catch (Throwable $e) {
+				throw new MiddlewareExecutionException($e);
+			}
+		}
+
+		try {
+			$action();
+		} catch (MiddlewareExecutionException $e) {
+			// A nested middleware failed: stop immediately without running outer hooks.
+			throw $e;
+		} catch (Throwable $e) {
+			$actionException = $e;
+		}
+
+		foreach (array_reverse($middlewares) as $middleware) {
+			try {
+				$middleware->after();
+			} catch (Throwable $e) {
+				throw new MiddlewareExecutionException($e);
+			}
+		}
+
+		if (isset($actionException)) {
+			throw $actionException;
+		}
 	}
 
 	/**

@@ -18,8 +18,10 @@ class ArgumentMiddleware implements IMiddleware
 	) {
 	}
 
-	public function handle(): void
+	public function before(): void
 	{
 		echo strtolower($this->role->name) . ':' . $this->policy->name . '>';
 	}
+
+	public function after(): void {}
 }

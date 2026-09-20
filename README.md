@@ -180,27 +180,52 @@ Matching is performed against the encoded request path. Captured values are then
 
 ### Create a middleware
 
+An exception is not required to create or use a middleware. In the usual case, `before()` performs its work and returns normally, then `after()` runs after the controller action. The authentication example below uses an application exception only because it needs to interrupt routing and prevent the controller action from running.
+
+Create the application exception in its own file, `src/Exceptions/UnauthorizedException.php`:
+
+```php
+declare(strict_types=1);
+
+namespace App\Exceptions;
+
+use RuntimeException;
+
+class UnauthorizedException extends RuntimeException {}
+```
+
+Then create the middleware in `src/Middlewares/AuthMiddleware.php`:
+
 ```php
 declare(strict_types=1);
 
 namespace App\Middlewares;
 
 use Attribute;
-use Karewan\KnRoute\HttpUtils;
+use App\Exceptions\UnauthorizedException;
 use Karewan\KnRoute\IMiddleware;
 
 #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
 class AuthMiddleware implements IMiddleware
 {
 	/**
-	 * Do your logic here
+	 * Run before the controller action
 	 * @return void
 	 */
-	public function handle(): void
+	public function before(): void
 	{
 		if (!isLogged()) {
-			HttpUtils::dieStatus(401);
+			throw new UnauthorizedException();
 		}
+	}
+
+	/**
+	 * Run after the action, including when it throws
+	 * @return void
+	 */
+	public function after(): void
+	{
+		// Cleanup, logging, response headers, etc.
 	}
 }
 ```
@@ -231,7 +256,7 @@ class TestController
 
 ### Use a middleware on a class method
 
-Will be executed after instantiating the class and before calling the method.
+Will be executed before instantiating the class and calling the method.
 
 ```php
 declare(strict_types=1);
@@ -274,15 +299,17 @@ class SecretMiddleware implements IMiddleware
 	public function __construct(private ?int $requireType = null) {}
 
 	/**
-	 * Define your logic here
+	 * Define logic executed before the action
 	 * @return void
 	 */
-	public function handle(): void
+	public function before(): void
 	{
 		if (!is_null($this->requireType)) {
-			HttpUtils::outputText("SecretMiddleware@handle(requireType={$this->requireType})\n");
+			HttpUtils::outputText("SecretMiddleware@before(requireType={$this->requireType})\n");
 		}
 	}
+
+	public function after(): void {}
 }
 ```
 
@@ -312,14 +339,23 @@ Middleware arguments are preserved in the route cache. Scalars, `null`, arrays, 
 
 ### Use global middlewares
 
-Global middlewares execute in registration order, before route matching and automatic responses such as `OPTIONS`. The complete request order is: global middlewares, route matching, class middlewares, controller construction, method middlewares, then controller action.
+Global middleware `before()` methods execute in registration order, before route matching and automatic responses such as `OPTIONS`. Class and method middleware `before()` methods then execute before the controller action. When the controller action throws, middleware `after()` methods still run in reverse order before the original exception is propagated.
+
+Middleware hook failures stop execution immediately. If a `before()` method throws, neither the action nor any `after()` method runs. If an `after()` method throws, the remaining `after()` methods do not run. In both cases, the original middleware exception is propagated from `Router::run()` and can be caught by the application.
 
 ```php
 $router = new Router();
 $router->addGlobalMiddleware(new CorsMiddleware());
 $router->registerRoutesFromControllers($controllersPath, $cacheFile);
-$router->run();
+
+try {
+	$router->run();
+} catch (\App\Exceptions\UnauthorizedException) {
+	\Karewan\KnRoute\HttpUtils::setStatus(401);
+}
 ```
+
+`UnauthorizedException` is needed here only to stop execution when authentication fails. Ordinary middlewares do not need an exception. This exception belongs to the application and is declared in its own file above; KnRoute does not define or swallow it. An exception thrown by `before()` or `after()` leaves `Router::run()` unchanged, so the front controller can catch it and choose the HTTP response.
 
 ### Inspect compiled routes
 
@@ -364,7 +400,7 @@ function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'
 function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): void;
 function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): void;
 function location(string $path = '/', int $httpCode = 302): void;
-function dieStatus(int $code): void;
+function setStatus(int $code): void;
 ```
 
 `HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()` and `setHeaders()` are normalized to standard title case.

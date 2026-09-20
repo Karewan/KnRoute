@@ -6,5 +6,7 @@ namespace Karewan\KnRoute;
 
 interface IMiddleware
 {
-	public function handle(): void;
+	public function before(): void;
+
+	public function after(): void;
 }

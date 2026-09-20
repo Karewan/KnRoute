@@ -348,11 +348,11 @@ class HttpUtils
 	}
 
 	/**
-	 * Die with HTTP status
+	 * Set HTTP response status
 	 * @param int $code
 	 * @return void
 	 */
-	public static function dieStatus(int $code): void
+	public static function setStatus(int $code): void
 	{
 		http_response_code($code);
 	}
