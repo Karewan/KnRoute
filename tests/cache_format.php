@@ -32,7 +32,7 @@ try {
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
 	$cache = require $cacheFile;
 
-	assertSame(5, $cache[4] ?? null, 'cache format version');
+	assertSame(6, $cache[4] ?? null, 'cache format version');
 	assertTrue(is_string($cache[5] ?? null), 'controller signature');
 	assertTrue(is_string($cache[6] ?? null), 'controller quick signature');
 
@@ -82,11 +82,11 @@ try {
 	$cache[4] = 1;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
-	assertSame(5, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
+	assertSame(6, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
 
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $productionCacheFile, false);
 	$productionCache = require $productionCacheFile;
-	assertSame(5, $productionCache[4] ?? null, 'production cache format version');
+	assertSame(6, $productionCache[4] ?? null, 'production cache format version');
 	assertTrue(!array_key_exists(5, $productionCache), 'production cache content signature is omitted');
 	assertTrue(!array_key_exists(6, $productionCache), 'production cache quick signature is omitted');
 

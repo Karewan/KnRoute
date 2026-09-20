@@ -24,6 +24,7 @@ v4.0.0 (unreleased)
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
+* **Encoded segment separators:** The `segment` route type now rejects percent-encoded `/` characters before captured values are decoded; cached routes are invalidated automatically.
 * **Controller signature validation:** Route compilation now rejects non-instantiable controllers, constructors with required arguments, static or lifecycle actions, by-reference route parameters, incompatible named or union types, and route-backed variadic parameters. Compatible union conversions remain precompiled in the route cache.
 * **Controller argument types:** Added coverage and documentation for the cached scalar conversion plan: URL parameters are cast to declared `int`, `float`, and `bool` controller types, while `string` and untyped parameters remain strings without runtime reflection.
 * **Ambiguous dynamic routes:** Routes with the same HTTP method and static structure are now rejected during compilation when their variable types can match the same path, without adding work to production route matching.

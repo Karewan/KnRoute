@@ -160,7 +160,7 @@ public function topSecret(int $id, string $model): void
 }
 ```
 
-Matching is performed against the encoded request path. Captured values are then decoded once with `rawurldecode()` before the controller is called. Consequently, `%20` becomes a space while a literal `+` remains `+`.
+Matching is performed against the encoded request path. Captured values are then decoded once with `rawurldecode()` before the controller is called. Consequently, `%20` becomes a space while a literal `+` remains `+`. The `segment` type rejects both literal and percent-encoded `/` separators; use `path` when separators are expected inside the captured value.
 
 ### Variable types
 

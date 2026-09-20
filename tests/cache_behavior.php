@@ -43,14 +43,14 @@ PHP);
 	$initialCache = require $cacheFile;
 	$initialSignature = $initialCache[5] ?? null;
 	if (!is_string($initialSignature)) throw new RuntimeException('Controller signature is missing from cache.');
-	if (($initialCache[4] ?? null) !== 5) throw new RuntimeException('Cache format version is missing from cache.');
+	if (($initialCache[4] ?? null) !== 6) throw new RuntimeException('Cache format version is missing from cache.');
 	$initialQuickSignature = $initialCache[6] ?? null;
 	if (!is_string($initialQuickSignature)) throw new RuntimeException('Controller quick signature is missing from cache.');
 
 	$initialCache[4] = 0;
 	file_put_contents($cacheFile, '<?php return ' . var_export($initialCache, true) . ';');
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
-	if (((require $cacheFile)[4] ?? null) !== 5) throw new RuntimeException('An incompatible cache format was not regenerated.');
+	if (((require $cacheFile)[4] ?? null) !== 6) throw new RuntimeException('An incompatible cache format was not regenerated.');
 
 	$originalContents = file_get_contents($controllerFile);
 	if ($originalContents === false) throw new RuntimeException('Unable to read controller fixture.');

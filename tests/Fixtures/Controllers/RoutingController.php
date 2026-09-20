@@ -123,6 +123,12 @@ class RoutingController
 		echo "file:{$path}";
 	}
 
+	#[Get('/segment-files/{name:segment}')]
+	public function segmentFile(string $name): void
+	{
+		echo "segment-file:{$name}";
+	}
+
 	#[Get('/alias-one')]
 	#[Get('/alias-two')]
 	public function aliases(): void

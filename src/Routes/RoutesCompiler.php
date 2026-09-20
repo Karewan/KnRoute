@@ -36,7 +36,7 @@ class RoutesCompiler
 		'hex' => '[A-Fa-f0-9]+',
 		'slug' => '[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*',
 		'uuid' => '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}',
-		'segment' => '[^/]+',
+		'segment' => '(?![^/]*%2[Ff])[^/]+',
 		'path' => '.+'
 	];
 
