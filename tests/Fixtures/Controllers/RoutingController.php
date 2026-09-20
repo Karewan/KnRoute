@@ -93,6 +93,18 @@ class RoutingController
 		]);
 	}
 
+	#[Get('/typed-union/{value:segment}')]
+	public function typedStringUnion(string|int $value): void
+	{
+		echo get_debug_type($value) . ":{$value}";
+	}
+
+	#[Get('/typed-nullable/{value:int}')]
+	public function typedNullableInteger(?int $value): void
+	{
+		echo get_debug_type($value) . ":{$value}";
+	}
+
 	#[Get('/variables/{first:alpha}/{second:alpha}/{slug:slug}/{hex:hex}/{value:segment}')]
 	public function variableTypes(string $first, string $second, string $slug, string $hex, string $value): void
 	{

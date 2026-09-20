@@ -15,6 +15,8 @@ use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
+use ReflectionParameter;
+use ReflectionUnionType;
 use LogicException;
 use RuntimeException;
 
@@ -22,7 +24,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 4;
+	private const int CACHE_FORMAT_VERSION = 5;
 
 	/**
 	 * Compiled routes
@@ -385,19 +387,29 @@ class Router
 			}
 
 			$controllerMiddlewares = $this->compileMiddlewares($controller->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF));
+			$controllerValidated = false;
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
 				if ($method->getDeclaringClass()->getName() !== $controller->getName()) {
 					continue;
 				}
 
-				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+				$routeAttributes = $method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
+				if (!$routeAttributes) continue;
+
+				$this->validateControllerAction($method);
+				if (!$controllerValidated) {
+					$this->validateController($controller);
+					$controllerValidated = true;
+				}
+
+				foreach ($routeAttributes as $attribute) {
 					$route = $attribute->newInstance();
 					$this->validateRouteParameters($route, $method);
 					$route->setAction([$controller->getName(), $method->getName()]);
 					$route->setExecutionMetadata(
 						array_merge($controllerMiddlewares, $this->compileMiddlewares($method->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF))),
-						$this->compileArgumentConverters($method)
+						$this->compileArgumentConverters($route, $method)
 					);
 					$routes[] = $route;
 				}
@@ -405,6 +417,32 @@ class Router
 		}
 
 		return $routes;
+	}
+
+	private function validateController(ReflectionClass $controller): void
+	{
+		if (!$controller->isInstantiable()) {
+			throw new LogicException(sprintf('Controller %s must be instantiable', $controller->getName()));
+		}
+
+		$constructor = $controller->getConstructor();
+		if ($constructor && $constructor->getNumberOfRequiredParameters() > 0) {
+			throw new LogicException(sprintf(
+				'Controller %s constructor must not require arguments',
+				$controller->getName()
+			));
+		}
+	}
+
+	private function validateControllerAction(ReflectionMethod $method): void
+	{
+		$action = $method->getDeclaringClass()->getName() . '::' . $method->getName() . '()';
+		if ($method->isConstructor() || $method->isDestructor()) {
+			throw new LogicException(sprintf('Controller action %s must not be a constructor or destructor', $action));
+		}
+		if ($method->isStatic()) {
+			throw new LogicException(sprintf('Controller action %s must not be static', $action));
+		}
 	}
 
 	/**
@@ -421,18 +459,58 @@ class Router
 	}
 
 	/** @return array<string,string> */
-	private function compileArgumentConverters(ReflectionMethod $method): array
+	private function compileArgumentConverters(Route $route, ReflectionMethod $method): array
 	{
 		$converters = [];
+		$variables = array_fill_keys($route->compile()->getPathVariables(), true);
 
 		foreach ($method->getParameters() as $parameter) {
-			$type = $parameter->getType();
-			if ($type instanceof ReflectionNamedType && $type->isBuiltin() && in_array($type->getName(), ['int', 'float', 'bool'], true)) {
-				$converters[$parameter->getName()] = $type->getName();
-			}
+			if (!isset($variables[$parameter->getName()])) continue;
+			$converter = $this->getParameterConverter($parameter, $method);
+			if ($converter !== null) $converters[$parameter->getName()] = $converter;
 		}
 
 		return $converters;
+	}
+
+	private function getParameterConverter(ReflectionParameter $parameter, ReflectionMethod $method): ?string
+	{
+		$type = $parameter->getType();
+		if ($type === null) return null;
+
+		$types = $type instanceof ReflectionUnionType ? $type->getTypes() : [$type];
+		foreach ($types as $namedType) {
+			if ($namedType instanceof ReflectionNamedType && $namedType->isBuiltin() && in_array($namedType->getName(), ['string', 'mixed'], true)) {
+				return null;
+			}
+		}
+
+		$convertible = [];
+		foreach ($types as $namedType) {
+			if (!$namedType instanceof ReflectionNamedType || !$namedType->isBuiltin()) {
+				$this->throwIncompatibleRouteParameter($parameter, $method);
+			}
+
+			$name = $namedType->getName();
+			if ($name === 'null') continue;
+			if (!in_array($name, ['int', 'float', 'bool'], true)) {
+				$this->throwIncompatibleRouteParameter($parameter, $method);
+			}
+			$convertible[$name] = true;
+		}
+
+		if (count($convertible) === 1) return array_key_first($convertible);
+		$this->throwIncompatibleRouteParameter($parameter, $method);
+	}
+
+	private function throwIncompatibleRouteParameter(ReflectionParameter $parameter, ReflectionMethod $method): never
+	{
+		throw new LogicException(sprintf(
+			'Route parameter "$%s" of %s::%s() must be untyped, string, mixed, a scalar int/float/bool type, or an unambiguous nullable scalar union',
+			$parameter->getName(),
+			$method->getDeclaringClass()->getName(),
+			$method->getName()
+		));
 	}
 
 	/**
@@ -445,6 +523,22 @@ class Router
 
 		foreach ($method->getParameters() as $parameter) {
 			$parameters[$parameter->getName()] = true;
+			if (isset($variables[$parameter->getName()]) && $parameter->isPassedByReference()) {
+				throw new LogicException(sprintf(
+					'Route parameter "$%s" of %s::%s() must not be passed by reference',
+					$parameter->getName(),
+					$method->getDeclaringClass()->getName(),
+					$method->getName()
+				));
+			}
+			if (isset($variables[$parameter->getName()]) && $parameter->isVariadic()) {
+				throw new LogicException(sprintf(
+					'Variadic parameter "$%s" of %s::%s() cannot be populated by a route variable',
+					$parameter->getName(),
+					$method->getDeclaringClass()->getName(),
+					$method->getName()
+				));
+			}
 			if (!$parameter->isOptional() && !$parameter->isVariadic() && !isset($variables[$parameter->getName()])) {
 				throw new LogicException(sprintf(
 					'Required parameter "$%s" of %s::%s() is missing from route pattern "%s"',

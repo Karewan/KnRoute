@@ -32,7 +32,7 @@ try {
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
 	$cache = require $cacheFile;
 
-	assertSame(4, $cache[4] ?? null, 'cache format version');
+	assertSame(5, $cache[4] ?? null, 'cache format version');
 	assertTrue(is_string($cache[5] ?? null), 'controller signature');
 	assertTrue(is_string($cache[6] ?? null), 'controller quick signature');
 
@@ -71,14 +71,22 @@ try {
 		'flag' => 'bool',
 	], $scalarAction[3] ?? null, 'cached scalar argument conversion plan');
 
+	$unionAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedStringUnion');
+	assertTrue(is_array($unionAction), 'cached string union route action');
+	assertSame([], $unionAction[3] ?? null, 'cached string union keeps URL values as strings');
+
+	$nullableAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedNullableInteger');
+	assertTrue(is_array($nullableAction), 'cached nullable scalar route action');
+	assertSame(['value' => 'int'], $nullableAction[3] ?? null, 'cached nullable scalar conversion plan');
+
 	$cache[4] = 1;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
-	assertSame(4, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
+	assertSame(5, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
 
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $productionCacheFile, false);
 	$productionCache = require $productionCacheFile;
-	assertSame(4, $productionCache[4] ?? null, 'production cache format version');
+	assertSame(5, $productionCache[4] ?? null, 'production cache format version');
 	assertTrue(!array_key_exists(5, $productionCache), 'production cache content signature is omitted');
 	assertTrue(!array_key_exists(6, $productionCache), 'production cache quick signature is omitted');
 

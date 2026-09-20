@@ -18,6 +18,8 @@ $tests = [
 	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions', ['allow' => 'OPTIONS', 'cache-control' => 'no-store']],
 	['Numeric parameter is coerced to a typed integer', 'GET', '/typed/42', 200, 'int:42', ROUTING_CONTROLLER, 'typedInteger'],
 	['Controller scalar types drive compiled argument casts', 'GET', '/typed-scalars/-42/3.5/0/text/raw', 200, 'int:-42|float:3.5|bool:false|string:text|string:raw', ROUTING_CONTROLLER, 'typedScalars'],
+	['A string-compatible union preserves the URL string', 'GET', '/typed-union/42', 200, 'string:42', ROUTING_CONTROLLER, 'typedStringUnion'],
+	['A nullable scalar uses its unambiguous compiled cast', 'GET', '/typed-nullable/-42', 200, 'int:-42', ROUTING_CONTROLLER, 'typedNullableInteger'],
 	['Variable regex types accept valid values', 'GET', '/variables/Alpha/letters/a-slug/DeadBeef/value', 200, 'Alpha|letters|a-slug|DeadBeef|value', ROUTING_CONTROLLER, 'variableTypes'],
 	['Variable regex types reject invalid values', 'GET', '/variables/Alpha/letters/not_ok/deadbeef/value', 404, '', null, null],
 	['Strict variable types accept valid values', 'GET', '/strict-variables/A1b2/-42/42/550e8400-e29b-41d4-a716-446655440000/a+b/path/to/file', 200, 'A1b2|-42|42|550e8400-e29b-41d4-a716-446655440000|a+b|path/to/file', ROUTING_CONTROLLER, 'strictVariableTypes'],
@@ -80,7 +82,16 @@ $compilationTests = [
 	['Variables must be closed', 'InvalidVariableUnclosed', LogicException::class],
 	['Closing braces must match variables', 'InvalidVariableClosingBrace', LogicException::class],
 	['Route variables must match controller parameters', 'InvalidVariableParameter', LogicException::class],
-	['Required controller parameters must match route variables', 'MissingVariableParameter', LogicException::class]
+	['Required controller parameters must match route variables', 'MissingVariableParameter', LogicException::class],
+	['Controllers with routes must be instantiable', 'NonInstantiableController', LogicException::class],
+	['Controller constructors cannot require arguments', 'RequiredControllerConstructor', LogicException::class],
+	['Controller actions cannot be static', 'StaticControllerAction', LogicException::class],
+	['Controller constructors cannot be actions', 'ConstructorControllerAction', LogicException::class],
+	['Controller destructors cannot be actions', 'DestructorControllerAction', LogicException::class],
+	['Route parameters cannot be passed by reference', 'ReferenceRouteParameter', LogicException::class],
+	['Object-typed route parameters are rejected', 'IncompatibleNamedRouteParameter', LogicException::class],
+	['Ambiguous scalar unions are rejected', 'AmbiguousUnionRouteParameter', LogicException::class],
+	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class]
 ];
 
 $failures = 0;

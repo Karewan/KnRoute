@@ -120,6 +120,8 @@ class IndexController
 
 The scanned directory is recursive. Every scanned PHP file must declare at most one named class. This is a strict requirement, not a convention: discovery throws a `LogicException` when a file contains two or more named classes, even if the additional classes are abstract, helper classes, or do not declare any routes. Put each named class in its own file. Anonymous classes are ignored, abstract classes do not register routes, and only public methods declared directly on the concrete class are inspected; inherited methods are not registered again.
 
+A concrete class declaring routes must be instantiable, and its constructor must not require arguments. Route actions must be non-static public methods and cannot be constructors or destructors.
+
 Controller files should follow PSR-4 naming so the discovered class can be loaded by the application autoloader. The discovery pass tokenizes files but does not explicitly include them.
 
 ### Route matching and HTTP semantics
@@ -145,6 +147,8 @@ Variables use the strict `{name:type}` syntax. A variable name must:
 Conversely, every required controller parameter must have a matching route variable. Optional controller parameters are allowed. Invalid declarations are rejected when routes are compiled.
 
 Captured URL values are strings after URL decoding. During route compilation, KnRoute reads the matching controller parameter types and stores the required scalar conversions in the route cache. Parameters declared as `int`, `float`, or `bool` are cast accordingly at execution time; parameters declared as `string` or without a type remain strings. No reflection or type inspection is performed while handling a cached request.
+
+Route parameters cannot be passed by reference. Named object types, intersection types, and ambiguous scalar unions such as `int|float` are rejected. A union containing `string` or `mixed` accepts the original string; a nullable union with exactly one of `int`, `float`, or `bool` uses that scalar conversion. Variadic action parameters are allowed only when they are not populated by a route variable; one URL capture is never expanded implicitly into variadic arguments.
 
 ```php
 #[Post('/amd/{id:uint}/ryzen/{model:alnum}')]
