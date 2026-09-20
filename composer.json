@@ -3,7 +3,7 @@
 	"description": "Simple and fast PHP 8.3+ router with route attributes and caching",
 	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri"],
 	"type": "library",
-	"version": "3.0.7",
+	"version": "4.0.0",
 	"license": "MIT",
 	"homepage": "https://github.com/Karewan/KnRoute",
 	"authors": [
