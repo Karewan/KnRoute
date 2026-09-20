@@ -19,8 +19,11 @@ namespace Karewan\KnRoute {
 
 namespace {
 	use Karewan\KnRoute\HttpUtils;
+	use Karewan\KnRoute\Exceptions\InvalidRequestUriException;
 	use Tests\HeaderCapture;
 
+	require __DIR__ . '/../src/Exceptions/HttpException.php';
+	require __DIR__ . '/../src/Exceptions/InvalidRequestUriException.php';
 	require __DIR__ . '/../src/HttpUtils.php';
 	require __DIR__ . '/../src/HttpStatus.php';
 
@@ -122,7 +125,13 @@ namespace {
 	$_SERVER = [];
 	assertSame('/', HttpUtils::getPath(), 'missing request URI');
 	$_SERVER['REQUEST_URI'] = 'http://[';
-	assertSame('/', HttpUtils::getPath(), 'malformed request URI');
+	try {
+		HttpUtils::getPath();
+		throw new RuntimeException('Malformed request URI was accepted.');
+	} catch (InvalidRequestUriException) {
+	}
+	$_SERVER['REQUEST_URI'] = '//admin';
+	assertSame('//admin', HttpUtils::getPath(), 'leading path slashes are preserved');
 	assertSame('', HttpUtils::getMethod(), 'missing request method');
 	assertSame('', HttpUtils::getProtocol(), 'missing server protocol');
 	assertSame('', HttpUtils::getQueryString(), 'missing query string');

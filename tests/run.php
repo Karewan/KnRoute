@@ -45,6 +45,8 @@ $tests = [
 	['Query string does not affect route matching', 'GET', '/static?filter=test', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
 	['Routes are case-sensitive', 'GET', '/STATIC', 404, '', null, null],
 	['Trailing slash is normalized', 'GET', '/static/', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
+	['Malformed request URI returns 400', 'GET', 'http://[', 400, '', null, null],
+	['Leading double slash is not normalized to a routed path', 'GET', '//static', 404, '', null, null],
 	['First repeatable route attribute matches', 'GET', '/alias-one', 200, 'alias', ROUTING_CONTROLLER, 'aliases'],
 	['Second repeatable route attribute matches', 'GET', '/alias-two', 200, 'alias', ROUTING_CONTROLLER, 'aliases'],
 	['GET selects the correct action on a shared path', 'GET', '/method-specific', 200, 'get', ROUTING_CONTROLLER, 'methodSpecificGet'],
@@ -109,7 +111,9 @@ $compilationTests = [
 	['Route parameters cannot be passed by reference', 'ReferenceRouteParameter', LogicException::class],
 	['Object-typed route parameters are rejected', 'IncompatibleNamedRouteParameter', LogicException::class],
 	['Ambiguous scalar unions are rejected', 'AmbiguousUnionRouteParameter', LogicException::class],
-	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class]
+	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class],
+	['Middleware attributes require all constructor arguments', 'InvalidMiddlewareMissingArgument', ArgumentCountError::class],
+	['Middleware attribute arguments must match constructor types', 'InvalidMiddlewareArgumentType', TypeError::class]
 ];
 
 $failures = 0;

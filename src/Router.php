@@ -571,10 +571,15 @@ class Router
 	 */
 	private function compileMiddlewares(array $attributes): array
 	{
-		return array_map(
-			static fn(ReflectionAttribute $attribute): array => [$attribute->getName(), $attribute->getArguments()],
-			$attributes
-		);
+		$middlewares = [];
+		foreach ($attributes as $attribute) {
+			// Instantiate during discovery so missing or incompatible constructor
+			// arguments cannot survive into a production route cache.
+			$attribute->newInstance();
+			$middlewares[] = [$attribute->getName(), $attribute->getArguments()];
+		}
+
+		return $middlewares;
 	}
 
 	/** @return array<string,string> */

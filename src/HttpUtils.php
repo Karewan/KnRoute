@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Karewan\KnRoute;
 
 use InvalidArgumentException;
+use Karewan\KnRoute\Exceptions\InvalidRequestUriException;
 
 class HttpUtils
 {
@@ -36,9 +37,45 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-		if (!is_string($path)) $path = '';
-		return $path === '*' ? '*' : '/' . trim($path, '/');
+		if (!array_key_exists('REQUEST_URI', $_SERVER) || $_SERVER['REQUEST_URI'] === '') {
+			return '/';
+		}
+
+		$requestUri = $_SERVER['REQUEST_URI'];
+		if (!is_string($requestUri)) {
+			throw new InvalidRequestUriException();
+		}
+
+		// Origin-form is the production hot path. Extract its path directly so
+		// leading slashes are preserved without invoking the general URI parser.
+		if ($requestUri[0] === '/') {
+			$queryPosition = strpos($requestUri, '?');
+			$path = $queryPosition === false ? $requestUri : substr($requestUri, 0, $queryPosition);
+			$path = rtrim($path, '/');
+			return $path === '' ? '/' : $path;
+		}
+
+		if ($requestUri === '*') return '*';
+
+		// Absolute-form is uncommon outside proxy requests and needs full
+		// validation before its path can be trusted.
+		$parts = parse_url($requestUri);
+		if ($parts === false || self::hasInvalidUriAuthority($parts)) {
+			throw new InvalidRequestUriException();
+		}
+
+		$path = $parts['path'] ?? '';
+		$path = rtrim($path, '/');
+		return $path === '' ? '/' : $path;
+	}
+
+	/** @param array<string,mixed> $parts */
+	private static function hasInvalidUriAuthority(array $parts): bool
+	{
+		$host = $parts['host'] ?? null;
+		if (!is_string($host)) return false;
+
+		return str_starts_with($host, '[') !== str_ends_with($host, ']');
 	}
 
 	/**
