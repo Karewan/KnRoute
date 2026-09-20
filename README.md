@@ -9,6 +9,7 @@ Simple and fast PHP 8.3+ router with route attributes and caching.
 	- [Installation](#installation)
 		- [Requirements](#requirements)
 		- [Getting started](#getting-started)
+		- [Running the tests](#running-the-tests)
 	- [Usage](#usage)
 		- [Register routes from the controllers and run the router](#register-routes-from-the-controllers-and-run-the-router)
 		- [Different types of routes](#different-types-of-routes)
@@ -34,6 +35,12 @@ PHP 8.3+
 
 ```
 $ composer require karewan/knroute
+```
+
+### Running the tests
+
+```shell
+composer test
 ```
 
 ## Usage
