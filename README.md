@@ -334,7 +334,7 @@ echo $router->dumpRoutesFromController(__DIR__ . '/App/Controllers');
 All methods on `Karewan\KnRoute\HttpUtils` are static.
 
 ```php
-function getHost(bool $allowOptionalServerPort = false): string;
+function getHost(): string;
 function getPath(): string;
 function getMethod(): string;
 function getProtocol(): string;
@@ -371,6 +371,8 @@ function dieStatus(int $code): never;
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
 
 Missing request URI, method, protocol, or query-string server values produce safe empty defaults. Port accessors return `null` when their server value is absent, invalid, or outside the `1..65535` range.
+
+`getHost()` supports bracketed IPv6 literals and always removes the server port. Use `getServerPort()` when the port is needed.
 
 `getContentLength()` returns a non-negative integer, or `null` when the header is absent or invalid.
 

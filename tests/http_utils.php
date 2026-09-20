@@ -31,6 +31,11 @@ namespace {
 	];
 
 	assertSame('first.example', HttpUtils::getHost(), 'initial host');
+	$_SERVER['HTTP_HOST'] = '[2001:db8::1]:8443';
+	assertSame('[2001:db8::1]', HttpUtils::getHost(), 'IPv6 host without server port');
+	$_SERVER['HTTP_HOST'] = '[2001:db8::1]';
+	assertSame('[2001:db8::1]', HttpUtils::getHost(), 'IPv6 host without explicit port');
+	$_SERVER['HTTP_HOST'] = 'first.example:8080';
 	assertSame('/first', HttpUtils::getPath(), 'initial path');
 	assertSame('first', HttpUtils::getHeader('x-CUSTOM-header'), 'case-insensitive header lookup');
 	assertSame(false, HttpUtils::isXmlHttpRequest(), 'non-XHR request');

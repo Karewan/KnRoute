@@ -23,13 +23,18 @@ class HttpUtils
 
 	/**
 	 * Get host
-	 * @param bool $allowOptionalServerPort Some web servers adds the server port inside the host header
 	 * @return string
 	 */
-	public static function getHost(bool $allowOptionalServerPort = false): string
+	public static function getHost(): string
 	{
 		$host = self::getHeader('Host');
-		return !$allowOptionalServerPort ? explode(':', $host)[0] : $host;
+		if (str_starts_with($host, '[')) {
+			$closingBracket = strpos($host, ']');
+			return $closingBracket === false ? $host : substr($host, 0, $closingBracket + 1);
+		}
+
+		if (substr_count($host, ':') !== 1) return $host;
+		return preg_replace('/:\d+$/D', '', $host) ?? $host;
 	}
 
 	/**
