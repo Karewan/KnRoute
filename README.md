@@ -73,11 +73,20 @@ All are method attributes.
 // All HTTP methods
 #[Any('/test')]
 
+// HTTP CONNECT method
+#[Connect('/test')]
+
 // HTTP DELETE method
 #[Delete('/test')]
 
 // HTTP GET method
 #[Get('/test')]
+
+// HTTP HEAD method
+#[Head('/test')]
+
+// HTTP OPTIONS method
+#[Options('/test')]
 
 // HTTP PATCH method
 #[Patch('/test')]
@@ -87,6 +96,9 @@ All are method attributes.
 
 // HTTP PUT method
 #[Put('/test')]
+
+// HTTP TRACE method
+#[Trace('/test')]
 
 // Use an array of HTTP methods
 #[Route(['GET', 'POST'], '/test')]

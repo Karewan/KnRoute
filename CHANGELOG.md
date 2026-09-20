@@ -1,5 +1,11 @@
 v4.0.0 (unreleased)
 ----------------------------
+### Added
+* **HTTP method attributes:** Added `Connect`, `Head`, `Options`, and `Trace` route attributes.
+
+### Fixed
+* **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
+
 ### Removed
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.
 

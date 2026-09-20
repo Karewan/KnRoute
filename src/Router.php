@@ -75,8 +75,9 @@ class Router
 			call_user_func_array([$controllerInstance, $this->findedMethod], array_map(fn(string $p): string => urldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
+			$method = HttpUtils::getMethod();
 
-			if (($method = HttpUtils::getMethod() == 'HEAD')) {
+			if ($method == 'HEAD') {
 				header('Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
 				header('Pragma: no-cache');
 				header('Expires: 0');
