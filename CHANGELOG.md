@@ -8,6 +8,7 @@ v4.0.0 (unreleased)
 
 ### Changed
 * **Package versioning:** Removed the hardcoded version from `composer.json`; Composer and Packagist now infer releases from VCS tags.
+* **Route dumper:** Removed unused recursion state and obsolete host-matching code from `RoutesDumper`.
 
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.

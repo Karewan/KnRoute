@@ -52,7 +52,7 @@ class RoutesDumper
 	 */
 	public function getCompiledRoutes(): array
 	{
-		// Group hosts by same-suffix, re-order when possible
+		// Split static and dynamic routes, re-order when possible.
 		[$staticRoutes, $dynamicRoutes] = $this->groupStaticRoutes();
 		$compiledRoutes = [$this->compileStaticRoutes($staticRoutes)];
 		$chunkLimit = count($dynamicRoutes);
@@ -116,20 +116,15 @@ class RoutesDumper
 	/**
 	 * Dump array
 	 * @param array $array
-	 * @param array $path
-	 * @param array $parentIds
 	 * @return string
 	 */
-	public function dumpArray(array $array, array $path = [], array $parentIds = []): string
+	public function dumpArray(array $array): string
 	{
 		$result = [];
 		$count = count($array);
 		$isList = array_keys($array) === range(0, $count - 1);
 
 		foreach ($array as $key => $value) {
-			$newPath = $path;
-			$newPath[] = (string) $key;
-
 			switch (gettype($value)) {
 				case 'boolean':
 				case 'integer':
@@ -139,7 +134,7 @@ class RoutesDumper
 					break;
 
 				case 'array':
-					$exported = $this->dumpArray($value, $path, $parentIds);
+					$exported = $this->dumpArray($value);
 					break;
 
 				default:
@@ -167,16 +162,14 @@ class RoutesDumper
 		foreach ($this->routes as $route) {
 			$compiledRoute = $route->compile();
 			$staticPrefix = rtrim($compiledRoute->getStaticPrefix(), '/');
-
 			$regex = $compiledRoute->getRegex();
 
 			if (!$compiledRoute->getPathVariables()) {
-				$host = '';
 				$url = $route->getPath();
 
-				foreach ($dynamicRegex as [$hostRx, $rx, $prefix]) {
-					if (('' === $prefix || str_starts_with($url, $prefix)) && (preg_match($rx, $url) || preg_match($rx, $url . '/')) && (!$host || !$hostRx || preg_match($hostRx, $host))) {
-						$dynamicRegex[] = [null, $regex, $staticPrefix];
+				foreach ($dynamicRegex as [$rx, $prefix]) {
+					if (('' === $prefix || str_starts_with($url, $prefix)) && (preg_match($rx, $url) || preg_match($rx, $url . '/'))) {
+						$dynamicRegex[] = [$regex, $staticPrefix];
 						$dynamicRoutes[] = $route;
 						continue 2;
 					}
@@ -184,7 +177,7 @@ class RoutesDumper
 
 				$staticRoutes[$url][] = $route;
 			} else {
-				$dynamicRegex[] = [null, $regex, $staticPrefix];
+				$dynamicRegex[] = [$regex, $staticPrefix];
 				$dynamicRoutes[] = $route;
 			}
 		}
