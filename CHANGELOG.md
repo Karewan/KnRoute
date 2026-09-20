@@ -8,6 +8,7 @@ v4.0.0 (unreleased)
 * **Cache format tests:** Added explicit coverage for cached execution metadata, middleware plans, argument conversions, legacy cache regeneration, and cached/uncached parity across every routing scenario.
 
 ### Changed
+* **Testable response flow:** Removed process-terminating `die()` calls from `Router::run()` and the `HttpUtils` response helpers. They now return control to the caller after setting the response status, headers, and body, allowing applications to unit-test complete routing flows in-process.
 * **Package versioning:** Removed the hardcoded version from `composer.json`; Composer and Packagist now infer releases from VCS tags.
 * **Route dumper:** Removed unused recursion state and obsolete host-matching code from `RoutesDumper`.
 * **Cached route execution:** Controller and method middleware metadata and scalar argument conversions are now precompiled into the route cache, removing reflection and `invokeArgs()` from the production request path.

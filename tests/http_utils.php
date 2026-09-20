@@ -141,6 +141,12 @@ namespace {
 	assertSame(4, $outputJson->getNumberOfParameters(), 'JSON output exposes encoding parameters');
 	assertSame(0, $outputJson->getParameters()[2]->getDefaultValue(), 'JSON output flags default');
 	assertSame(512, $outputJson->getParameters()[3]->getDefaultValue(), 'JSON output depth default');
+	assertSame('void', (string) $outputJson->getReturnType(), 'JSON output returns control');
+
+	ob_start();
+	HttpUtils::outputText('test response');
+	assertSame('test response', ob_get_clean(), 'text output returns after writing response');
+	assertSame('void', (string) (new ReflectionMethod(HttpUtils::class, 'dieStatus'))->getReturnType(), 'status helper returns control');
 
 	echo "PASS  HttpUtils is stateless and normalizes headers and trusted proxies\n";
 

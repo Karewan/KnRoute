@@ -131,6 +131,7 @@ foreach ($tests as $test) {
 		assertSame($expectedOutput, $result['output'], 'output', $errors);
 		assertSame($expectedController, $result['controller'], 'controller', $errors);
 		assertSame($expectedAction, $result['action'], 'action', $errors);
+		assertSame(true, $result['routerReturned'], 'router returns control', $errors);
 		assertSame(0, $result['exitCode'], 'exit code', $errors);
 		foreach ($expectedHeaders as $header => $expectedValue) {
 			assertSame($expectedValue, $result['headers'][$header] ?? null, "{$header} header", $errors);
@@ -194,7 +195,7 @@ function incrementDecimal(string $value): string
 }
 
 /**
- * @return array{status: int, output: string, controller: ?string, action: ?string, headers: array<string,string>, exitCode: int, diagnostics: string}
+ * @return array{status: int, output: string, controller: ?string, action: ?string, headers: array<string,string>, routerReturned: bool, exitCode: int, diagnostics: string}
  */
 function runRouteRequest(string $method, string $uri, int $globalMiddlewareCount = 0, string $fixtureDirectory = 'Controllers', bool $useCache = false): array
 {
@@ -233,6 +234,7 @@ function runRouteRequest(string $method, string $uri, int $globalMiddlewareCount
 		'controller' => $metadata['controller'],
 		'action' => $metadata['action'],
 		'headers' => $metadata['headers'],
+		'routerReturned' => $metadata['routerReturned'],
 		'exitCode' => $exitCode,
 		'diagnostics' => $diagnostics
 	];

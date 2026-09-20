@@ -105,13 +105,13 @@ use Karewan\KnRoute\HttpUtils;
 class IndexController
 {
 	#[Get('/')]
-	public function index(): never
+	public function index(): void
 	{
 		HttpUtils::outputText("IndexController@index\n");
 	}
 
 	#[Post('/login')]
-	public function login(): never
+	public function login(): void
 	{
 		HttpUtils::outputJson(['error' => 'Bad credentials']);
 	}
@@ -358,13 +358,13 @@ function getServerPort(): ?int;
 function getClientPort(): ?int;
 function getBody(): string;
 function getJsonBody(bool $associative = false, int $flags = 0, int $depth = 512): mixed;
-function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): never;
-function outputHtml(string $html, int $httpCode = 200): never;
-function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): never;
-function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never;
-function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): never;
-function location(string $path = '/', int $httpCode = 302): never;
-function dieStatus(int $code): never;
+function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): void;
+function outputHtml(string $html, int $httpCode = 200): void;
+function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): void;
+function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): void;
+function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): void;
+function location(string $path = '/', int $httpCode = 302): void;
+function dieStatus(int $code): void;
 ```
 
 `HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()` and `setHeaders()` are normalized to standard title case.
@@ -372,6 +372,8 @@ function dieStatus(int $code): never;
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
 
 `outputJson()` always enables `JSON_THROW_ON_ERROR` and accepts the remaining `json_encode()` flags and depth. `getJsonBody()` remains permissive by default and returns `null` for invalid JSON; pass `JSON_BIGINT_AS_STRING` explicitly when preserving oversized integers as strings is required.
+
+Response helpers and `Router::run()` return control to the caller after writing the response. This makes controllers and complete routing flows directly testable without terminating the PHP process.
 
 Missing request URI, method, protocol, or query-string server values produce safe empty defaults. Port accessors return `null` when their server value is absent, invalid, or outside the `1..65535` range.
 

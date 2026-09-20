@@ -81,12 +81,14 @@ namespace {
 	}
 	$router->registerRoutesFromControllers($controllersPath, $cacheFile);
 
-	register_shutdown_function(static function () use ($router, $cacheFile): void {
+	$routerReturned = false;
+	register_shutdown_function(static function () use ($router, $cacheFile, &$routerReturned): void {
 	$metadata = [
 		'status' => http_response_code(),
 		'controller' => $router->getMatchedController(),
 		'action' => $router->getMatchedMethod(),
-		'headers' => ResponseCapture::$headers
+		'headers' => ResponseCapture::$headers,
+		'routerReturned' => $routerReturned
 	];
 
 	fwrite(STDERR, '__ROUTER_METADATA__' . json_encode($metadata, JSON_THROW_ON_ERROR));
@@ -95,4 +97,5 @@ namespace {
 
 	http_response_code(200);
 	$router->run();
+	$routerReturned = true;
 }

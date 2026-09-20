@@ -53,17 +53,19 @@ class Router
 
 	/**
 	 * Run
-	 * @return never
+	 * @return void
 	 */
-	public function run(): never
+	public function run(): void
 	{
 		$requestMethod = HttpUtils::getMethod();
+		$headOutputBufferLevel = null;
 
 		try {
 			// The route. Keep ordinary methods on the shortest possible hot path.
 			switch ($requestMethod) {
 				case 'HEAD':
 					// A HEAD response must never contain a body, including for explicit HEAD routes.
+					$headOutputBufferLevel = ob_get_level();
 					ob_start(static fn(): string => '');
 					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findHeadRoute(HttpUtils::getPath());
@@ -74,6 +76,7 @@ class Router
 					header('Cache-Control: no-store');
 					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findOptionsRoute(HttpUtils::getPath());
+					if (is_null($route)) return;
 					break;
 
 				case 'GET':
@@ -89,7 +92,7 @@ class Router
 					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					if (!$this->acceptsAnyMethod && !isset($this->knownMethods[$requestMethod])) {
 						http_response_code(501);
-						die();
+						return;
 					}
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
 			}
@@ -123,9 +126,11 @@ class Router
 			http_response_code(405);
 		} catch (ResourceNotFoundException $e) {
 			http_response_code(404);
+		} finally {
+			if (!is_null($headOutputBufferLevel)) {
+				while (ob_get_level() > $headOutputBufferLevel) ob_end_clean();
+			}
 		}
-
-		die();
 	}
 
 	/**
@@ -683,14 +688,14 @@ class Router
 	/**
 	 * Match an explicit OPTIONS route or generate an automatic empty response.
 	 * @param string $pathinfo
-	 * @return array
+	 * @return null|array
 	 */
-	private function findOptionsRoute(string $pathinfo): array
+	private function findOptionsRoute(string $pathinfo): ?array
 	{
 		if ($pathinfo === '*') {
 			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($this->getDeclaredMethods())));
 			http_response_code(204);
-			die();
+			return null;
 		}
 
 		$allow = [];
@@ -719,7 +724,7 @@ class Router
 
 		header('Allow: ' . join(', ', $this->normalizeAllowedMethods(array_keys($allow))));
 		http_response_code(204);
-		die();
+		return null;
 	}
 
 	/**

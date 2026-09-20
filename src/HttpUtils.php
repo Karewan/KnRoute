@@ -275,27 +275,25 @@ class HttpUtils
 	 * @param int $httpCode
 	 * @param int $flags
 	 * @param int $depth
-	 * @return never
+	 * @return void
 	 */
-	public static function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): never
+	public static function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): void
 	{
 		$json = json_encode($data, $flags | JSON_THROW_ON_ERROR, $depth);
 		header('Content-type: application/json; charset=utf-8', true, $httpCode);
 		echo $json;
-		die();
 	}
 
 	/**
 	 * Output HTML
 	 * @param string $html
 	 * @param int $httpCode
-	 * @return never
+	 * @return void
 	 */
-	public static function outputHtml(string $html, int $httpCode = 200): never
+	public static function outputHtml(string $html, int $httpCode = 200): void
 	{
 		header('Content-type: text/html; charset=utf-8', true, $httpCode);
 		echo $html;
-		die();
 	}
 
 	/**
@@ -303,13 +301,12 @@ class HttpUtils
 	 * @param string $text
 	 * @param int $httpCode
 	 * @param string $charset
-	 * @return never
+	 * @return void
 	 */
-	public static function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): never
+	public static function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): void
 	{
 		header("Content-type: text/plain; charset={$charset}", true, $httpCode);
 		echo $text;
-		die();
 	}
 
 	/**
@@ -317,13 +314,12 @@ class HttpUtils
 	 * @param string $xmlString
 	 * @param int $httpCode
 	 * @param string $charset
-	 * @return never
+	 * @return void
 	 */
-	public static function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never
+	public static function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): void
 	{
 		header("Content-type: application/xml; charset={$charset}", true, $httpCode);
 		echo $xmlString;
-		die();
 	}
 
 	/**
@@ -332,36 +328,33 @@ class HttpUtils
 	 * @param string $str
 	 * @param int $httpCode
 	 * @param string $charset
-	 * @return never
+	 * @return void
 	 */
-	public static function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): never
+	public static function outputString(string $contentType, string $str, int $httpCode = 200, string $charset = 'utf-8'): void
 	{
 		header("Content-type: {$contentType}; charset={$charset}", true, $httpCode);
 		echo $str;
-		die();
 	}
 
 	/**
 	 * HTTP Redirect
 	 * @param string $path
 	 * @param int $httpCode
-	 * @return never
+	 * @return void
 	 */
-	public static function location(string $path = '/', int $httpCode = 302): never
+	public static function location(string $path = '/', int $httpCode = 302): void
 	{
 		header("Location: {$path}", true, $httpCode);
-		die();
 	}
 
 	/**
 	 * Die with HTTP status
 	 * @param int $code
-	 * @return never
+	 * @return void
 	 */
-	public static function dieStatus(int $code): never
+	public static function dieStatus(int $code): void
 	{
 		http_response_code($code);
-		die();
 	}
 
 	/**
