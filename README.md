@@ -118,7 +118,7 @@ class IndexController
 
 ### Controller discovery rules
 
-The scanned directory is recursive. Each PHP file may declare at most one named class. Anonymous classes are ignored, abstract classes do not register routes, and only public methods declared directly on the concrete class are inspected; inherited methods are not registered again.
+The scanned directory is recursive. Every scanned PHP file must declare at most one named class. This is a strict requirement, not a convention: discovery throws a `LogicException` when a file contains two or more named classes, even if the additional classes are abstract, helper classes, or do not declare any routes. Put each named class in its own file. Anonymous classes are ignored, abstract classes do not register routes, and only public methods declared directly on the concrete class are inspected; inherited methods are not registered again.
 
 Controller files should follow PSR-4 naming so the discovered class can be loaded by the application autoloader. The discovery pass tokenizes files but does not explicitly include them.
 
