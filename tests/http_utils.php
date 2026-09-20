@@ -33,6 +33,12 @@ namespace {
 	assertSame('first.example', HttpUtils::getHost(), 'initial host');
 	assertSame('/first', HttpUtils::getPath(), 'initial path');
 	assertSame('first', HttpUtils::getHeader('x-CUSTOM-header'), 'case-insensitive header lookup');
+	assertSame(null, HttpUtils::getContentLength(), 'missing content length');
+
+	$_SERVER['CONTENT_LENGTH'] = '0';
+	assertSame(0, HttpUtils::getContentLength(), 'zero content length');
+	$_SERVER['CONTENT_LENGTH'] = '123';
+	assertSame(123, HttpUtils::getContentLength(), 'content length as integer');
 
 	$_SERVER['HTTP_HOST'] = 'second.example';
 	$_SERVER['REQUEST_URI'] = '/second/';

@@ -127,11 +127,12 @@ class HttpUtils
 
 	/**
 	 * Get Content-Length
-	 * @return string
+	 * @return null|int
 	 */
-	public static function getContentLength(): string
+	public static function getContentLength(): ?int
 	{
-		return self::getHeader('Content-Length');
+		$contentLength = self::getHeader('Content-Length');
+		return $contentLength === '' ? null : (int) $contentLength;
 	}
 
 	/**

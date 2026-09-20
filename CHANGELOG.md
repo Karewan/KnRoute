@@ -13,6 +13,7 @@ v4.0.0 (unreleased)
 * **Cached route execution:** Controller and method middleware metadata and scalar argument conversions are now precompiled into the route cache, removing reflection and `invokeArgs()` from the production request path.
 * **Development cache validation:** Controller caches now use a fast path, size, and modification-time signature before falling back to content hashing, avoiding full controller reads on unchanged development requests. Signatures are neither computed nor stored when controller scanning is disabled.
 * **Stateless HTTP utilities:** Removed request-derived static caches from `HttpUtils` for safe use in long-running workers; request and response header names are now handled case-insensitively and normalized.
+* **Content length:** `HttpUtils::getContentLength()` now returns an integer, or `null` when the header is absent.
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed

@@ -333,7 +333,7 @@ function setHeader(string $key, string $value, int $httpCode = 0, bool $replace 
 function setHeaders(array $headers, int $httpCode = 0, bool $replace = true): void;
 function getQueryString(): string;
 function getContentType(): string;
-function getContentLength(): string;
+function getContentLength(): ?int;
 function getUserAgent(): string;
 function getLanguages(): string;
 function getAcceptEncoding(): string;
