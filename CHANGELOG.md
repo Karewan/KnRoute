@@ -1,3 +1,9 @@
+v4.0.0 (unreleased)
+----------------------------
+### Removed
+* **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.
+
+
 v3.0.7 (2026-07-30)
 ----------------------------
 ### Security

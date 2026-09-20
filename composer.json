@@ -1,7 +1,7 @@
 {
 	"name": "karewan/knroute",
-	"description": "Simple and fast PHP 8.3+ router with routes attributes and caching (+Inertia.js compatiblity)",
-	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri", "inertia"],
+	"description": "Simple and fast PHP 8.3+ router with route attributes and caching",
+	"keywords": ["routing", "router", "caching", "attributes", "fast", "url", "uri"],
 	"type": "library",
 	"version": "3.0.7",
 	"license": "MIT",
