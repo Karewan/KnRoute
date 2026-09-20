@@ -241,7 +241,7 @@ class HttpUtils
 	 */
 	public static function getBody(): string
 	{
-		return trim(file_get_contents('php://input') ?: '');
+		return file_get_contents('php://input') ?: '';
 	}
 
 	/**
