@@ -12,8 +12,6 @@ $tests = [
 	['Any accepts arbitrary methods', 'PATCH', '/any', 200, 'any', ROUTING_CONTROLLER, 'anyMethod'],
 	['Route accepts its first configured method', 'GET', '/multiple', 200, 'multiple', ROUTING_CONTROLLER, 'multipleMethods'],
 	['Route accepts its second configured method', 'POST', '/multiple', 200, 'multiple', ROUTING_CONTROLLER, 'multipleMethods'],
-	['TRACE matches its route', 'TRACE', '/trace', 200, 'trace', ROUTING_CONTROLLER, 'trace'],
-	['CONNECT matches its route', 'CONNECT', '/connect', 200, 'connect', ROUTING_CONTROLLER, 'connect'],
 	['Explicit HEAD matches its route without a body', 'HEAD', '/explicit-head', 200, '', ROUTING_CONTROLLER, 'explicitHead', [], ['cache-control', 'pragma', 'expires']],
 	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions', ['allow' => 'OPTIONS', 'cache-control' => 'no-store']],
 	['Numeric parameter is coerced to a typed integer', 'GET', '/typed/42', 200, 'int:42', ROUTING_CONTROLLER, 'typedInteger'],
@@ -28,15 +26,32 @@ $tests = [
 	['Second repeatable route attribute matches', 'GET', '/alias-two', 200, 'alias', ROUTING_CONTROLLER, 'aliases'],
 	['GET selects the correct action on a shared path', 'GET', '/method-specific', 200, 'get', ROUTING_CONTROLLER, 'methodSpecificGet'],
 	['POST selects the correct action on a shared path', 'POST', '/method-specific', 200, 'post', ROUTING_CONTROLLER, 'methodSpecificPost'],
+	['Explicit method takes priority over Any', 'GET', '/priority', 200, 'explicit', ROUTING_CONTROLLER, 'priorityGet'],
+	['Any remains the fallback for other methods', 'PATCH', '/priority', 200, 'fallback', ROUTING_CONTROLLER, 'priorityFallback'],
+	['Application-defined method is routed', 'PURGE', '/custom-method', 200, 'purged', ROUTING_CONTROLLER, 'customMethod'],
+	['Application-defined method metadata is loaded from cache', 'PURGE', '/custom-method', 200, 'purged', ROUTING_CONTROLLER, 'customMethod', [], [], false, 'Controllers', true],
 	['Class middleware runs before the controller', 'GET', '/middleware/class', 200, 'class>controller', MIDDLEWARE_CONTROLLER, 'classMiddleware'],
 	['Class and method middleware run in order', 'GET', '/middleware/both', 200, 'class>method>controller', MIDDLEWARE_CONTROLLER, 'classAndMethodMiddlewares'],
+	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
+	['Global middlewares run in declaration order', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-order' => 'first,second'], [], 2],
+	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], true],
 	['Unknown path returns 404', 'GET', '/missing', 404, '', null, null],
 	['Unsupported method returns 405', 'POST', '/static', 405, '', null, null, ['allow' => 'GET, HEAD, OPTIONS']],
+	['Unknown method returns 501', 'BREW', '/static', 501, '', null, null, [], [], false, 'NoAny'],
+	['Removed CONNECT method returns 501', 'CONNECT', '/static', 501, '', null, null, [], [], false, 'NoAny'],
+	['Removed TRACE method returns 501', 'TRACE', '/static', 501, '', null, null, [], [], false, 'NoAny'],
 	['OPTIONS is handled automatically', 'OPTIONS', '/static', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS', 'cache-control' => 'no-store']],
-	['OPTIONS bypasses Any routes', 'OPTIONS', '/any', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE']],
-	['OPTIONS asterisk describes server capabilities', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE']],
-	['HEAD falls back to GET without a body', 'HEAD', '/static', 200, '', ROUTING_CONTROLLER, 'staticRoute', [], ['cache-control', 'pragma', 'expires']],
+	['OPTIONS bypasses Any routes', 'OPTIONS', '/any', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, PURGE']],
+	['OPTIONS asterisk describes server capabilities', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, PURGE']],
+	['HEAD recognizes GET without executing it', 'HEAD', '/static', 200, '', null, null, [], ['cache-control', 'pragma', 'expires']],
+	['HEAD recognizes Any without executing it', 'HEAD', '/any', 200, '', null, null],
 	['HEAD is rejected when GET is unavailable', 'HEAD', '/post-only', 405, '', null, null, ['allow' => 'POST, OPTIONS']]
+];
+
+$compilationTests = [
+	['Duplicate routes are rejected', 'ConflictDuplicate', LogicException::class],
+	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class],
+	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class]
 ];
 
 $failures = 0;
@@ -45,7 +60,10 @@ foreach ($tests as $test) {
 	[$name, $method, $uri, $expectedStatus, $expectedOutput, $expectedController, $expectedAction] = $test;
 	$expectedHeaders = $test[7] ?? [];
 	$unexpectedHeaders = $test[8] ?? [];
-	$result = runRouteRequest($method, $uri);
+	$globalMiddlewareCount = (int) ($test[9] ?? 0);
+	$fixtureDirectory = $test[10] ?? 'Controllers';
+	$useCache = $test[11] ?? false;
+	$result = runRouteRequest($method, $uri, $globalMiddlewareCount, $fixtureDirectory, $useCache);
 	$errors = [];
 
 	assertSame($expectedStatus, $result['status'], 'status', $errors);
@@ -77,16 +95,28 @@ foreach ($tests as $test) {
 	}
 }
 
-echo sprintf("\n%d tests, %d failures\n", count($tests), $failures);
+foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException]) {
+	$result = runCompilationCheck($fixtureDirectory);
+	if ($result['exitCode'] === 0 && $result['exception'] === $expectedException) {
+		echo "PASS  {$name}\n";
+		continue;
+	}
+
+	$failures++;
+	echo "FAIL  {$name}\n";
+	echo '      expected ' . $expectedException . ', got ' . var_export($result, true) . "\n";
+}
+
+echo sprintf("\n%d tests, %d failures\n", count($tests) + count($compilationTests), $failures);
 exit($failures === 0 ? 0 : 1);
 
 /**
  * @return array{status: int, output: string, controller: ?string, action: ?string, headers: array<string,string>, exitCode: int, diagnostics: string}
  */
-function runRouteRequest(string $method, string $uri): array
+function runRouteRequest(string $method, string $uri, int $globalMiddlewareCount = 0, string $fixtureDirectory = 'Controllers', bool $useCache = false): array
 {
 	$process = proc_open(
-		[PHP_BINARY, __DIR__ . '/route_request.php', $method, $uri],
+		[PHP_BINARY, __DIR__ . '/route_request.php', $method, $uri, (string) $globalMiddlewareCount, $fixtureDirectory, $useCache ? 'cache' : ''],
 		[
 			1 => ['pipe', 'w'],
 			2 => ['pipe', 'w']
@@ -122,6 +152,33 @@ function runRouteRequest(string $method, string $uri): array
 		'headers' => $metadata['headers'],
 		'exitCode' => $exitCode,
 		'diagnostics' => $diagnostics
+	];
+}
+
+/**
+ * @return array{exitCode: int, exception: ?string, message: ?string}
+ */
+function runCompilationCheck(string $fixtureDirectory): array
+{
+	$process = proc_open(
+		[PHP_BINARY, __DIR__ . '/compile_routes.php', $fixtureDirectory],
+		[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+		$pipes,
+		__DIR__ . '/..'
+	);
+
+	if (!is_resource($process)) throw new RuntimeException('Unable to start the compilation check process.');
+	$output = stream_get_contents($pipes[1]);
+	$stderr = stream_get_contents($pipes[2]);
+	fclose($pipes[1]);
+	fclose($pipes[2]);
+	$exitCode = proc_close($process);
+	$data = $output !== '' ? json_decode($output, true, flags: JSON_THROW_ON_ERROR) : [];
+
+	return [
+		'exitCode' => $exitCode,
+		'exception' => $data['class'] ?? null,
+		'message' => $data['message'] ?? ($stderr !== '' ? trim($stderr) : null)
 	];
 }
 

@@ -21,6 +21,7 @@ Simple and fast PHP 8.3+ router with route attributes and caching.
 		- [Use a middleware on a class method](#use-a-middleware-on-a-class-method)
 		- [Create a middleware with parameters](#create-a-middleware-with-parameters)
 		- [Use a middleware with parameters](#use-a-middleware-with-parameters)
+		- [Use global middlewares](#use-global-middlewares)
 		- [HttpUtils class (all methods are static)](#httputils-class-all-methods-are-static)
 	- [Changelog](#changelog)
 	- [License](#license)
@@ -80,9 +81,6 @@ All are method attributes.
 // All HTTP methods
 #[Any('/test')]
 
-// HTTP CONNECT method
-#[Connect('/test')]
-
 // HTTP DELETE method
 #[Delete('/test')]
 
@@ -103,9 +101,6 @@ All are method attributes.
 
 // HTTP PUT method
 #[Put('/test')]
-
-// HTTP TRACE method
-#[Trace('/test')]
 
 // Use an array of HTTP methods
 #[Route(['GET', 'POST'], '/test')]
@@ -289,6 +284,17 @@ class TestController
 		HttpUtils::outputText("TestController@index\n");
 	}
 }
+```
+
+### Use global middlewares
+
+Global middlewares execute before route matching and automatic responses such as `OPTIONS`.
+
+```php
+$router = new Router();
+$router->addGlobalMiddleware(new CorsMiddleware());
+$router->registerRoutesFromControllers($controllersPath, $cacheFile);
+$router->run();
 ```
 
 ### HttpUtils class (all methods are static)

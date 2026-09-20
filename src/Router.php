@@ -8,6 +8,7 @@ use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
+use Closure;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionAttribute;
@@ -18,13 +19,20 @@ use RuntimeException;
 class Router
 {
 	/** @var string[] */
-	private const array HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE'];
+	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
 
 	/**
 	 * Compiled routes
 	 * @var array
 	 */
 	private array $compiledRoutes = [];
+
+	/** @var array<string,int> */
+	private array $knownMethods = [];
+
+	private bool $acceptsAnyMethod = false;
+
+	private ?Closure $globalMiddlewareRunner = null;
 
 	/**
 	 * The finded controller
@@ -57,16 +65,32 @@ class Router
 				case 'HEAD':
 					// A HEAD response must never contain a body, including for explicit HEAD routes.
 					ob_start(static fn(): string => '');
+					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findHeadRoute(HttpUtils::getPath());
 					break;
 
 				case 'OPTIONS':
 					// OPTIONS responses are not cacheable.
 					header('Cache-Control: no-store');
+					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
 					$route = $this->findOptionsRoute(HttpUtils::getPath());
 					break;
 
+				case 'GET':
+				case 'POST':
+				case 'PUT':
+				case 'PATCH':
+				case 'DELETE':
+					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
+					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
+					break;
+
 				default:
+					if ($this->globalMiddlewareRunner) ($this->globalMiddlewareRunner)();
+					if (!$this->acceptsAnyMethod && !isset($this->knownMethods[$requestMethod])) {
+						http_response_code(501);
+						die();
+					}
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
 			}
 
@@ -124,6 +148,22 @@ class Router
 	}
 
 	/**
+	 * Add a middleware executed before every route and automatic response.
+	 * @param IMiddleware $middleware
+	 * @return void
+	 */
+	public function addGlobalMiddleware(IMiddleware $middleware): void
+	{
+		$previous = $this->globalMiddlewareRunner;
+		$this->globalMiddlewareRunner = is_null($previous)
+			? $middleware->handle(...)
+			: static function () use ($previous, $middleware): void {
+				$previous();
+				$middleware->handle();
+			};
+	}
+
+	/**
 	 * Register routes from controllers Route attributes
 	 * @param string $controllersPath
 	 * @param null|string $cacheFile
@@ -137,15 +177,26 @@ class Router
 			is_file($cacheFile) &&
 			(!$scanForModifiedControllers || !$this->hasModifiedControllers($controllersPath, $cacheFile))
 		) {
-			$this->compiledRoutes = require $cacheFile;
+			$this->setCompiledRoutes(require $cacheFile);
 			return;
 		}
 
 		$routes = $this->findRoutesFromControllers($controllersPath);
 		$routeDumper = new RoutesDumper($routes);
-		$this->compiledRoutes = $routeDumper->getCompiledRoutes();
+		$this->setCompiledRoutes($routeDumper->getCompiledRoutes());
 
 		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
+	}
+
+	/**
+	 * Load compiled routes and their method metadata.
+	 * @param array $compiledRoutes
+	 * @return void
+	 */
+	private function setCompiledRoutes(array $compiledRoutes): void
+	{
+		$this->compiledRoutes = $compiledRoutes;
+		[$this->knownMethods, $this->acceptsAnyMethod] = $compiledRoutes[3] ?? [[], false];
 	}
 
 	/**
@@ -363,19 +414,10 @@ class Router
 			return $ret;
 		}
 
+		// GET and Any confirm that the resource supports HEAD without executing their actions.
 		if (isset($allow['GET'])) {
-			$getAllow = [];
-			$getPathMatched = false;
-			if ($ret = $this->doSpecialMatch($pathinfo, 'GET', $getAllow, $getPathMatched, false)) {
-				return $ret;
-			}
-		}
-
-		// An Any route remains a valid last-resort HEAD handler.
-		$anyAllow = [];
-		$anyPathMatched = false;
-		if ($ret = $this->doSpecialMatch($pathinfo, 'HEAD', $anyAllow, $anyPathMatched)) {
-			return $ret;
+			http_response_code(200);
+			die();
 		}
 
 		if ($pathMatched) {
@@ -393,7 +435,7 @@ class Router
 	private function findOptionsRoute(string $pathinfo): array
 	{
 		if ($pathinfo === '*') {
-			header('Allow: ' . join(', ', self::HTTP_METHODS));
+			header('Allow: ' . join(', ', $this->getAdvertisedMethods()));
 			http_response_code(204);
 			die();
 		}
@@ -432,7 +474,7 @@ class Router
 		$allowed['OPTIONS'] = true;
 
 		$ordered = [];
-		foreach (self::HTTP_METHODS as $method) {
+		foreach ($this->getAdvertisedMethods() as $method) {
 			if (isset($allowed[$method])) {
 				$ordered[] = $method;
 				unset($allowed[$method]);
@@ -440,6 +482,17 @@ class Router
 		}
 
 		return array_merge($ordered, array_keys($allowed));
+	}
+
+	/**
+	 * Return standard and application-defined methods advertised by this router.
+	 * @return string[]
+	 */
+	private function getAdvertisedMethods(): array
+	{
+		$methods = array_fill_keys(self::STANDARD_METHODS, true);
+		$methods += $this->knownMethods;
+		return array_keys($methods);
 	}
 
 	/**
@@ -514,7 +567,7 @@ class Router
 			$pathMatched = true;
 
 			if (!$requiredMethods && !$matchAny) {
-				$allow += array_fill_keys(self::HTTP_METHODS, 0);
+				$allow += array_fill_keys($this->getAdvertisedMethods(), 0);
 				continue;
 			}
 
@@ -539,7 +592,7 @@ class Router
 					$pathMatched = true;
 
 					if (!$requiredMethods && !$matchAny) {
-						$allow += array_fill_keys(self::HTTP_METHODS, 0);
+						$allow += array_fill_keys($this->getAdvertisedMethods(), 0);
 						continue;
 					}
 

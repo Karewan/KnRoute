@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace Tests\Fixtures\Controllers;
 
 use Karewan\KnRoute\Attributes\Any;
-use Karewan\KnRoute\Attributes\Connect;
 use Karewan\KnRoute\Attributes\Delete;
 use Karewan\KnRoute\Attributes\Get;
 use Karewan\KnRoute\Attributes\Head;
 use Karewan\KnRoute\Attributes\Options;
 use Karewan\KnRoute\Attributes\Post;
 use Karewan\KnRoute\Attributes\Route;
-use Karewan\KnRoute\Attributes\Trace;
 
 class RoutingController
 {
@@ -44,18 +42,6 @@ class RoutingController
 	public function multipleMethods(): void
 	{
 		echo 'multiple';
-	}
-
-	#[Trace('/trace')]
-	public function trace(): void
-	{
-		echo 'trace';
-	}
-
-	#[Connect('/connect')]
-	public function connect(): void
-	{
-		echo 'connect';
 	}
 
 	#[Head('/explicit-head')]
@@ -111,5 +97,23 @@ class RoutingController
 	public function postOnly(): void
 	{
 		echo 'post-only';
+	}
+
+	#[Any('/priority')]
+	public function priorityFallback(): void
+	{
+		echo 'fallback';
+	}
+
+	#[Get('/priority')]
+	public function priorityGet(): void
+	{
+		echo 'explicit';
+	}
+
+	#[Route(['PURGE'], '/custom-method')]
+	public function customMethod(): void
+	{
+		echo 'purged';
 	}
 }

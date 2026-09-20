@@ -30,6 +30,8 @@ namespace Karewan\KnRoute {
 namespace {
 	use Karewan\KnRoute\Router;
 	use Tests\ResponseCapture;
+	use Tests\Fixtures\Middlewares\GlobalMiddleware;
+	use Tests\Fixtures\Middlewares\SecondGlobalMiddleware;
 
 	const PROJECT_ROOT = __DIR__ . '/..';
 
@@ -57,8 +59,29 @@ namespace {
 	$_SERVER['SERVER_PROTOCOL'] = 'HTTP/1.1';
 
 	$router = new Router();
+	$globalMiddlewareCount = (int) ($argv[3] ?? 0);
+	if ($globalMiddlewareCount >= 1) {
+		$router->addGlobalMiddleware(new GlobalMiddleware());
+	}
+	if ($globalMiddlewareCount >= 2) {
+		$router->addGlobalMiddleware(new SecondGlobalMiddleware());
+	}
+	$controllersPath = __DIR__ . '/Fixtures/' . ($argv[4] ?? 'Controllers');
+	$cacheFile = null;
+	if (($argv[5] ?? '') === 'cache') {
+		$cacheFile = sys_get_temp_dir() . '/knroute_' . bin2hex(random_bytes(8)) . '.php';
+		$router->registerRoutesFromControllers($controllersPath, $cacheFile);
+		$router = new Router();
+		if ($globalMiddlewareCount >= 1) {
+			$router->addGlobalMiddleware(new GlobalMiddleware());
+		}
+		if ($globalMiddlewareCount >= 2) {
+			$router->addGlobalMiddleware(new SecondGlobalMiddleware());
+		}
+	}
+	$router->registerRoutesFromControllers($controllersPath, $cacheFile);
 
-	register_shutdown_function(static function () use ($router): void {
+	register_shutdown_function(static function () use ($router, $cacheFile): void {
 	$metadata = [
 		'status' => http_response_code(),
 		'controller' => $router->getFindedController(),
@@ -67,9 +90,9 @@ namespace {
 	];
 
 	fwrite(STDERR, '__ROUTER_METADATA__' . json_encode($metadata, JSON_THROW_ON_ERROR));
+	if (!is_null($cacheFile) && is_file($cacheFile)) unlink($cacheFile);
 	});
 
 	http_response_code(200);
-	$router->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', null);
 	$router->run();
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Karewan\KnRoute\Attributes;
 
 use Attribute;
+use InvalidArgumentException;
 use Karewan\KnRoute\Routes\CompiledRoute;
 use Karewan\KnRoute\Routes\RoutesCompiler;
 
@@ -29,7 +30,18 @@ class Route
 	public function __construct(
 		private array $methods,
 		private string $path
-	) {}
+	) {
+		$seen = [];
+		foreach ($methods as $method) {
+			if (!is_string($method) || !preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $method)) {
+				throw new InvalidArgumentException('HTTP methods must be valid case-sensitive tokens');
+			}
+			if (isset($seen[$method])) {
+				throw new InvalidArgumentException(sprintf('HTTP method "%s" is declared more than once', $method));
+			}
+			$seen[$method] = true;
+		}
+	}
 
 	/**
 	 * Methods

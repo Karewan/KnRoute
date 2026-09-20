@@ -7,6 +7,7 @@ namespace Karewan\KnRoute\Dumper;
 use ErrorException;
 use Exception;
 use Karewan\KnRoute\Attributes\Route;
+use LogicException;
 use RuntimeException;
 use stdClass;
 
@@ -26,6 +27,10 @@ class RoutesDumper
 	public function __construct(array $routes)
 	{
 		$this->routes = $routes;
+		$this->validateRoutes();
+
+		// Explicit methods always take precedence over Any, independently of declaration order.
+		usort($this->routes, static fn(Route $a, Route $b): int => (int) empty($a->getMethods()) <=> (int) empty($b->getMethods()));
 	}
 
 	/**
@@ -54,7 +59,45 @@ class RoutesDumper
 			}
 		}
 
+		$methods = [];
+		$acceptsAnyMethod = false;
+		foreach ($this->routes as $route) {
+			if (!$route->getMethods()) {
+				$acceptsAnyMethod = true;
+				continue;
+			}
+			$methods += array_flip($route->getMethods());
+		}
+		$compiledRoutes[] = [$methods, $acceptsAnyMethod];
+
 		return $compiledRoutes;
+	}
+
+	/**
+	 * Reject ambiguous routes before generating or caching the matcher.
+	 * @return void
+	 */
+	private function validateRoutes(): void
+	{
+		$seen = [];
+
+		foreach ($this->routes as $route) {
+			$regex = preg_replace('/\?P<[^>]+>/', '?:', $route->compile()->getRegex());
+			$signature = $regex ?? $route->compile()->getRegex();
+			$methods = $route->getMethods() ?: ['*'];
+
+			foreach ($methods as $method) {
+				if (isset($seen[$signature][$method])) {
+					throw new LogicException(sprintf(
+						'Conflicting %s routes "%s" and "%s"',
+						$method === '*' ? 'Any' : $method,
+						join('->', $seen[$signature][$method]->getAction()),
+						join('->', $route->getAction())
+					));
+				}
+				$seen[$signature][$method] = $route;
+			}
+		}
 	}
 
 	/**
