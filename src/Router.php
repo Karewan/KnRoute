@@ -118,7 +118,7 @@ class Router
 			}
 
 			// Call the method
-			$controllerMethod->invokeArgs($controllerInstance, array_map(fn(string $p): string => urldecode($p), $route));
+			$controllerMethod->invokeArgs($controllerInstance, array_map(fn(string $p): string => rawurldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
 			http_response_code(405);

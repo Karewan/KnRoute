@@ -8,6 +8,8 @@ v4.0.0 (unreleased)
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
 * **Typed route parameters:** Controller methods are now invoked through reflection so compatible captured values, such as a numeric route parameter passed to an `int`, are coerced correctly.
+* **URL-decoded route parameters:** Route parameters now use `rawurldecode()` so literal plus signs in URL paths are preserved instead of being converted to spaces.
+* **Request body integrity:** `HttpUtils::getBody()` no longer trims leading or trailing whitespace from request bodies.
 * **Case-sensitive routes:** Request paths are no longer converted to lowercase before route matching.
 * **HEAD and OPTIONS semantics:** HEAD now falls back to GET without a response body, automatic OPTIONS responses advertise the available methods, and invalid HEAD requests correctly return HTTP 405.
 * **HTTP method routing:** Explicit routes now take priority over `Any`, conflicting routes and invalid method tokens are rejected during compilation, and unsupported methods return HTTP 501.

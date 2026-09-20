@@ -19,6 +19,7 @@ $tests = [
 	['Variable regex types reject invalid values', 'GET', '/variables/a1/letters/not_ok/deadbeef/value', 404, '', null, null],
 	['Catch-all variable accepts path separators', 'GET', '/files/path/to/file.txt', 200, 'file:path/to/file.txt', ROUTING_CONTROLLER, 'catchAll'],
 	['Captured values are URL-decoded', 'GET', '/variables/a1/letters/a-slug/deadbeef/hello%20world', 200, 'a1|letters|a-slug|deadbeef|hello world', ROUTING_CONTROLLER, 'variableTypes'],
+	['Plus signs in captured values are preserved', 'GET', '/variables/a1/letters/a-slug/deadbeef/hello+world', 200, 'a1|letters|a-slug|deadbeef|hello+world', ROUTING_CONTROLLER, 'variableTypes'],
 	['Query string does not affect route matching', 'GET', '/static?filter=test', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
 	['Routes are case-sensitive', 'GET', '/STATIC', 404, '', null, null],
 	['Trailing slash is normalized', 'GET', '/static/', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
