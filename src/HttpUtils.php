@@ -48,7 +48,8 @@ class HttpUtils
 	public static function getPath(): string
 	{
 		if (!isset(self::$path)) {
-			self::$path = '/' . trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '', '/');
+			$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
+			self::$path = $path === '*' ? '*' : '/' . trim($path, '/');
 		}
 
 		return self::$path;

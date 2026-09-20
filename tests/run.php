@@ -14,8 +14,8 @@ $tests = [
 	['Route accepts its second configured method', 'POST', '/multiple', 200, 'multiple', ROUTING_CONTROLLER, 'multipleMethods'],
 	['TRACE matches its route', 'TRACE', '/trace', 200, 'trace', ROUTING_CONTROLLER, 'trace'],
 	['CONNECT matches its route', 'CONNECT', '/connect', 200, 'connect', ROUTING_CONTROLLER, 'connect'],
-	['Explicit HEAD matches its route', 'HEAD', '/explicit-head', 200, 'head', ROUTING_CONTROLLER, 'explicitHead'],
-	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions'],
+	['Explicit HEAD matches its route without a body', 'HEAD', '/explicit-head', 200, '', ROUTING_CONTROLLER, 'explicitHead', [], ['cache-control', 'pragma', 'expires']],
+	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions', ['allow' => 'OPTIONS', 'cache-control' => 'no-store']],
 	['Numeric parameter is coerced to a typed integer', 'GET', '/typed/42', 200, 'int:42', ROUTING_CONTROLLER, 'typedInteger'],
 	['Variable regex types accept valid values', 'GET', '/variables/a1/letters/a-slug/deadbeef/value', 200, 'a1|letters|a-slug|deadbeef|value', ROUTING_CONTROLLER, 'variableTypes'],
 	['Variable regex types reject invalid values', 'GET', '/variables/a1/letters/not_ok/deadbeef/value', 404, '', null, null],
@@ -31,14 +31,20 @@ $tests = [
 	['Class middleware runs before the controller', 'GET', '/middleware/class', 200, 'class>controller', MIDDLEWARE_CONTROLLER, 'classMiddleware'],
 	['Class and method middleware run in order', 'GET', '/middleware/both', 200, 'class>method>controller', MIDDLEWARE_CONTROLLER, 'classAndMethodMiddlewares'],
 	['Unknown path returns 404', 'GET', '/missing', 404, '', null, null],
-	['Unsupported method returns 405', 'POST', '/static', 405, '', null, null],
-	['OPTIONS is handled automatically', 'OPTIONS', '/static', 200, '', null, null],
-	['HEAD is handled automatically', 'HEAD', '/static', 200, '', null, null]
+	['Unsupported method returns 405', 'POST', '/static', 405, '', null, null, ['allow' => 'GET, HEAD, OPTIONS']],
+	['OPTIONS is handled automatically', 'OPTIONS', '/static', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS', 'cache-control' => 'no-store']],
+	['OPTIONS bypasses Any routes', 'OPTIONS', '/any', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE']],
+	['OPTIONS asterisk describes server capabilities', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE']],
+	['HEAD falls back to GET without a body', 'HEAD', '/static', 200, '', ROUTING_CONTROLLER, 'staticRoute', [], ['cache-control', 'pragma', 'expires']],
+	['HEAD is rejected when GET is unavailable', 'HEAD', '/post-only', 405, '', null, null, ['allow' => 'POST, OPTIONS']]
 ];
 
 $failures = 0;
 
-foreach ($tests as [$name, $method, $uri, $expectedStatus, $expectedOutput, $expectedController, $expectedAction]) {
+foreach ($tests as $test) {
+	[$name, $method, $uri, $expectedStatus, $expectedOutput, $expectedController, $expectedAction] = $test;
+	$expectedHeaders = $test[7] ?? [];
+	$unexpectedHeaders = $test[8] ?? [];
 	$result = runRouteRequest($method, $uri);
 	$errors = [];
 
@@ -47,6 +53,14 @@ foreach ($tests as [$name, $method, $uri, $expectedStatus, $expectedOutput, $exp
 	assertSame($expectedController, $result['controller'], 'controller', $errors);
 	assertSame($expectedAction, $result['action'], 'action', $errors);
 	assertSame(0, $result['exitCode'], 'exit code', $errors);
+	foreach ($expectedHeaders as $header => $expectedValue) {
+		assertSame($expectedValue, $result['headers'][$header] ?? null, "{$header} header", $errors);
+	}
+	foreach ($unexpectedHeaders as $header) {
+		if (array_key_exists($header, $result['headers'])) {
+			$errors[] = "{$header} header: expected it to be absent, got " . var_export($result['headers'][$header], true);
+		}
+	}
 
 	if ($errors === []) {
 		echo "PASS  {$name}\n";
@@ -67,7 +81,7 @@ echo sprintf("\n%d tests, %d failures\n", count($tests), $failures);
 exit($failures === 0 ? 0 : 1);
 
 /**
- * @return array{status: int, output: string, controller: ?string, action: ?string, exitCode: int, diagnostics: string}
+ * @return array{status: int, output: string, controller: ?string, action: ?string, headers: array<string,string>, exitCode: int, diagnostics: string}
  */
 function runRouteRequest(string $method, string $uri): array
 {
@@ -105,6 +119,7 @@ function runRouteRequest(string $method, string $uri): array
 		'output' => $output,
 		'controller' => $metadata['controller'],
 		'action' => $metadata['action'],
+		'headers' => $metadata['headers'],
 		'exitCode' => $exitCode,
 		'diagnostics' => $diagnostics
 	];

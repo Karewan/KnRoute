@@ -17,6 +17,9 @@ use RuntimeException;
 
 class Router
 {
+	/** @var string[] */
+	private const array HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE'];
+
 	/**
 	 * Compiled routes
 	 * @var array
@@ -46,10 +49,26 @@ class Router
 
 		// Set a constant to check if current request is XHR
 		define('IS_XHR', HttpUtils::getHeader('X-Requested-With') == 'XMLHttpRequest');
+		$requestMethod = $_SERVER['REQUEST_METHOD'];
 
 		try {
-			// The route
-			$route = $this->findRoute(HttpUtils::getPath());
+			// The route. Keep ordinary methods on the shortest possible hot path.
+			switch ($requestMethod) {
+				case 'HEAD':
+					// A HEAD response must never contain a body, including for explicit HEAD routes.
+					ob_start(static fn(): string => '');
+					$route = $this->findHeadRoute(HttpUtils::getPath());
+					break;
+
+				case 'OPTIONS':
+					// OPTIONS responses are not cacheable.
+					header('Cache-Control: no-store');
+					$route = $this->findOptionsRoute(HttpUtils::getPath());
+					break;
+
+				default:
+					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
+			}
 
 			// The controller and method
 			$this->findedController = array_shift($route);
@@ -77,16 +96,8 @@ class Router
 			// Call the method
 			$controllerMethod->invokeArgs($controllerInstance, array_map(fn(string $p): string => urldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
-			header('Allow: ' . join(', ', $e->getAllowedMethods()));
-			$method = HttpUtils::getMethod();
-
-			if ($method == 'HEAD') {
-				header('Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-				header('Pragma: no-cache');
-				header('Expires: 0');
-			} else if ($method != 'OPTIONS') {
-				http_response_code(405);
-			}
+			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
+			http_response_code(405);
 		} catch (ResourceNotFoundException $e) {
 			http_response_code(404);
 		}
@@ -323,11 +334,11 @@ class Router
 	 * @param string $pathinfo
 	 * @return array
 	 */
-	private function findRoute(string $pathinfo): array
+	private function findRoute(string $pathinfo, string $requestMethod): array
 	{
 		$allow = [];
 
-		if ($ret = $this->doMatch($pathinfo, $allow)) {
+		if ($ret = $this->doMatch($pathinfo, $requestMethod, $allow)) {
 			return $ret;
 		}
 
@@ -339,17 +350,174 @@ class Router
 	}
 
 	/**
-	 * Do match
+	 * Match a HEAD route, falling back to GET when no explicit HEAD route exists.
 	 * @param string $pathinfo
+	 * @return array
+	 */
+	private function findHeadRoute(string $pathinfo): array
+	{
+		$allow = [];
+		$pathMatched = false;
+
+		if ($ret = $this->doSpecialMatch($pathinfo, 'HEAD', $allow, $pathMatched, false)) {
+			return $ret;
+		}
+
+		if (isset($allow['GET'])) {
+			$getAllow = [];
+			$getPathMatched = false;
+			if ($ret = $this->doSpecialMatch($pathinfo, 'GET', $getAllow, $getPathMatched, false)) {
+				return $ret;
+			}
+		}
+
+		// An Any route remains a valid last-resort HEAD handler.
+		$anyAllow = [];
+		$anyPathMatched = false;
+		if ($ret = $this->doSpecialMatch($pathinfo, 'HEAD', $anyAllow, $anyPathMatched)) {
+			return $ret;
+		}
+
+		if ($pathMatched) {
+			throw new MethodNotAllowedException(array_keys($allow));
+		}
+
+		throw new ResourceNotFoundException(sprintf('No routes found for "%s".', $pathinfo));
+	}
+
+	/**
+	 * Match an explicit OPTIONS route or generate an automatic empty response.
+	 * @param string $pathinfo
+	 * @return array
+	 */
+	private function findOptionsRoute(string $pathinfo): array
+	{
+		if ($pathinfo === '*') {
+			header('Allow: ' . join(', ', self::HTTP_METHODS));
+			http_response_code(204);
+			die();
+		}
+
+		$allow = [];
+		$pathMatched = false;
+		$this->doSpecialMatch($pathinfo, "\0", $allow, $pathMatched, false);
+
+		if (!$pathMatched) {
+			throw new ResourceNotFoundException(sprintf('No routes found for "%s".', $pathinfo));
+		}
+
+		header('Allow: ' . join(', ', $this->normalizeAllowedMethods(array_keys($allow))));
+
+		$optionsAllow = [];
+		$optionsPathMatched = false;
+		if ($ret = $this->doSpecialMatch($pathinfo, 'OPTIONS', $optionsAllow, $optionsPathMatched, false)) {
+			return $ret;
+		}
+
+		http_response_code(204);
+		die();
+	}
+
+	/**
+	 * Complete and order the methods advertised in an Allow header.
+	 * @param string[] $methods
+	 * @return string[]
+	 */
+	private function normalizeAllowedMethods(array $methods): array
+	{
+		$allowed = array_fill_keys($methods, true);
+		if (isset($allowed['GET'])) {
+			$allowed['HEAD'] = true;
+		}
+		$allowed['OPTIONS'] = true;
+
+		$ordered = [];
+		foreach (self::HTTP_METHODS as $method) {
+			if (isset($allowed[$method])) {
+				$ordered[] = $method;
+				unset($allowed[$method]);
+			}
+		}
+
+		return array_merge($ordered, array_keys($allowed));
+	}
+
+	/**
+	 * Fast route matching path used by ordinary HTTP methods.
+	 * @param string $pathinfo
+	 * @param string $requestMethod
 	 * @param array $allow
 	 * @return null|array
 	 */
-	private function doMatch(string $pathinfo, array &$allow = []): ?array
+	private function doMatch(string $pathinfo, string $requestMethod, array &$allow = []): ?array
 	{
 		$allow = [];
-		$requestMethod = HttpUtils::getMethod();
 
 		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
+			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
+				$allow += $requiredMethods;
+				continue;
+			}
+
+			return $ret;
+		}
+
+		$matchedPathinfo = $pathinfo;
+
+		foreach ($this->compiledRoutes[1] as $offset => $regex) {
+			while (preg_match($regex, $matchedPathinfo, $matches)) {
+				foreach ($this->compiledRoutes[2][$m = (int) $matches['MARK']] as $r) {
+					if (is_null($r)) {
+						continue 3;
+					}
+
+					[$ret, $requiredMethods, $vars] = $r;
+
+					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
+						$allow += $requiredMethods;
+						continue;
+					}
+
+					foreach ($vars as $i => $v) {
+						if (isset($matches[1 + $i])) {
+							$ret[$v] = $matches[1 + $i];
+						}
+					}
+
+					return $ret;
+				}
+
+				$regex = substr_replace($regex, 'F', $m - $offset, 1 + strlen(strval($m)));
+				$offset += strlen(strval($m));
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Route matching with method and path-state controls for HEAD and OPTIONS.
+	 * Kept separate from doMatch to avoid adding special-method bookkeeping to the hot path.
+	 * @param string $pathinfo
+	 * @param string $requestMethod
+	 * @param array $allow
+	 * @param bool $pathMatched
+	 * @param bool $matchAny
+	 * @return null|array
+	 */
+	private function doSpecialMatch(string $pathinfo, string $requestMethod, array &$allow, bool &$pathMatched, bool $matchAny = true): ?array
+	{
+		$allow = [];
+		$pathMatched = false;
+
+		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
+			$pathMatched = true;
+
+			if (!$requiredMethods && !$matchAny) {
+				$allow += array_fill_keys(self::HTTP_METHODS, 0);
+				continue;
+			}
+
 			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
 				$allow += $requiredMethods;
 				continue;
@@ -368,6 +536,12 @@ class Router
 					}
 
 					[$ret, $requiredMethods, $vars] = $r;
+					$pathMatched = true;
+
+					if (!$requiredMethods && !$matchAny) {
+						$allow += array_fill_keys(self::HTTP_METHODS, 0);
+						continue;
+					}
 
 					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
 						$allow += $requiredMethods;

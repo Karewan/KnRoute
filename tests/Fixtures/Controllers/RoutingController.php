@@ -106,4 +106,10 @@ class RoutingController
 	{
 		echo 'post';
 	}
+
+	#[Post('/post-only')]
+	public function postOnly(): void
+	{
+		echo 'post-only';
+	}
 }
