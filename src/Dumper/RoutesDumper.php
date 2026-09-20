@@ -116,18 +116,83 @@ class RoutesDumper
 			}
 
 			foreach ($validated as $otherRoute) {
-				$commonMethods = array_intersect($route->getMethods(), $otherRoute->getMethods());
-				if (!$commonMethods || !self::haveOverlappingVariableDomains($route, $otherRoute)) continue;
+				$commonMethods = self::commonMethods($route, $otherRoute);
+				if ($commonMethods === null || !self::haveOverlappingPaths($route, $otherRoute)) continue;
 
 				throw new LogicException(sprintf(
 					'Ambiguous %s routes "%s" and "%s" can match the same path',
-					implode('|', $commonMethods),
+					$commonMethods === [] ? 'Any' : implode('|', $commonMethods),
 					join('->', $otherRoute->getAction()),
 					join('->', $route->getAction())
 				));
 			}
 			$validated[] = $route;
 		}
+	}
+
+	/** @return null|string[] null means that the method domains are disjoint. */
+	private static function commonMethods(Route $first, Route $second): ?array
+	{
+		if (!$first->getMethods() && !$second->getMethods()) return [];
+		// An explicit method intentionally takes precedence over an Any fallback.
+		if (!$first->getMethods() || !$second->getMethods()) return null;
+		$common = array_values(array_intersect($first->getMethods(), $second->getMethods()));
+		return $common ?: null;
+	}
+
+	private static function haveOverlappingPaths(Route $first, Route $second): bool
+	{
+		// Static routes have deterministic precedence and are intentionally allowed to
+		// specialize a dynamic route.
+		if (!$first->compile()->getPathVariables() || !$second->compile()->getPathVariables()) return false;
+		if (self::haveOverlappingVariableDomains($first, $second)) return true;
+
+		$firstRegex = $first->compile()->getRegex();
+		$secondRegex = $second->compile()->getRegex();
+		foreach (self::representativePaths($first, $second) as $path) {
+			if (preg_match($secondRegex, $path) === 1) return true;
+		}
+		foreach (self::representativePaths($second, $first) as $path) {
+			if (preg_match($firstRegex, $path) === 1) return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Produce concrete paths at compile time, including the other route's static segments.
+	 * This finds intersections where a broad segment/path variable consumes another route's structure.
+	 * @return string[]
+	 */
+	private static function representativePaths(Route $route, Route $other): array
+	{
+		$values = ['a', 'A', '0', '1', '-1', 'a-b', 'deadbeef', '550e8400-e29b-41d4-a716-446655440000', 'a/b'];
+		foreach ([$route, $other] as $candidateRoute) {
+			$staticPath = preg_replace('/\{[A-Za-z_][A-Za-z0-9_]*:[a-z][a-z0-9_]*\}/', '/', $candidateRoute->getPath());
+			foreach (explode('/', $staticPath ?? '') as $segment) {
+				if ($segment !== '') $values[] = $segment;
+			}
+		}
+		$values = array_values(array_unique($values));
+
+		$parts = preg_split('/(\{[A-Za-z_][A-Za-z0-9_]*:[a-z][a-z0-9_]*\})/', $route->getPath(), flags: PREG_SPLIT_DELIM_CAPTURE);
+		if ($parts === false) return [];
+
+		$paths = [''];
+		foreach ($parts as $index => $part) {
+			$choices = ($index & 1) === 0 ? [$part] : $values;
+			$expanded = [];
+			foreach ($paths as $path) {
+				foreach ($choices as $choice) {
+					$expanded[] = $path . $choice;
+					if (count($expanded) >= 4096) break 2;
+				}
+			}
+			$paths = $expanded;
+		}
+
+		$regex = $route->compile()->getRegex();
+		return array_values(array_filter($paths, static fn(string $path): bool => preg_match($regex, $path) === 1));
 	}
 
 	/**

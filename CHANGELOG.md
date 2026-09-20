@@ -27,6 +27,7 @@ v4.0.0 (unreleased)
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
+* **Dynamic route conflicts:** Route compilation now rejects overlapping dynamic routes with different static structures, as well as overlapping `Any` routes, without adding work to cached request handling.
 * **Integer route bounds:** `int` and `uint` variables now reject values outside the platform integer range in their compiled expressions, preventing overflow without adding production cache overhead.
 * **Malformed request URIs:** `HttpUtils::getPath()` now handles `parse_url()` failures safely.
 * **Controller file validation:** Route compilation now verifies that each discovered controller was actually autoloaded from the scanned file, rejecting stale or incorrect Composer classmaps without adding work to the cached production path.
