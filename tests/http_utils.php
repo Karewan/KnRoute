@@ -120,6 +120,16 @@ namespace {
 	$_SERVER['REMOTE_PORT'] = 'invalid';
 	assertSame(null, HttpUtils::getServerPort(), 'out-of-range server port');
 	assertSame(null, HttpUtils::getClientPort(), 'invalid client port');
+	assertSame(null, HttpUtils::getJsonBody(), 'invalid JSON body returns null');
+
+	$getJsonBody = new ReflectionMethod(HttpUtils::class, 'getJsonBody');
+	assertSame(0, $getJsonBody->getParameters()[1]->getDefaultValue(), 'JSON input flags default');
+	assertSame(512, $getJsonBody->getParameters()[2]->getDefaultValue(), 'JSON input depth default');
+
+	$outputJson = new ReflectionMethod(HttpUtils::class, 'outputJson');
+	assertSame(4, $outputJson->getNumberOfParameters(), 'JSON output exposes encoding parameters');
+	assertSame(0, $outputJson->getParameters()[2]->getDefaultValue(), 'JSON output flags default');
+	assertSame(512, $outputJson->getParameters()[3]->getDefaultValue(), 'JSON output depth default');
 
 	echo "PASS  HttpUtils is stateless and normalizes headers and trusted proxies\n";
 

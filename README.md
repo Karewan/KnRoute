@@ -356,8 +356,8 @@ function getIp(): string;
 function getServerPort(): ?int;
 function getClientPort(): ?int;
 function getBody(): string;
-function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed;
-function outputJson(mixed $data, int $httpCode = 200): never;
+function getJsonBody(bool $associative = false, int $flags = 0, int $depth = 512): mixed;
+function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): never;
 function outputHtml(string $html, int $httpCode = 200): never;
 function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): never;
 function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never;
@@ -369,6 +369,8 @@ function dieStatus(int $code): never;
 `HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()` and `setHeaders()` are normalized to standard title case.
 
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
+
+`outputJson()` always enables `JSON_THROW_ON_ERROR` and accepts the remaining `json_encode()` flags and depth. `getJsonBody()` remains permissive by default and returns `null` for invalid JSON; pass `JSON_BIGINT_AS_STRING` explicitly when preserving oversized integers as strings is required.
 
 Missing request URI, method, protocol, or query-string server values produce safe empty defaults. Port accessors return `null` when their server value is absent, invalid, or outside the `1..65535` range.
 

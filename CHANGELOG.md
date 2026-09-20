@@ -20,6 +20,8 @@ v4.0.0 (unreleased)
 * **Trusted proxies:** Common forwarding headers are now recognized automatically, and forwarding chains are resolved securely from right to left.
 * **Optional server values:** `HttpUtils` now handles missing request metadata safely; content length and port accessors return `null` for missing or invalid values.
 * **Host handling:** `HttpUtils::getHost()` now handles IPv6 literals, always excludes the server port, and no longer accepts a port-retention parameter.
+* **JSON output:** `HttpUtils::outputJson()` now throws on encoding errors and exposes the `json_encode()` flags and depth parameters; JSON request decoding remains permissive.
+* **JSON input:** `HttpUtils::getJsonBody()` now orders flags before depth and follows `json_decode()` with no default flags; `JSON_BIGINT_AS_STRING` remains available explicitly.
 * **HTTP response defaults:** `Router::run()` no longer emits an empty `Content-Type` header.
 * **Any and OPTIONS semantics:** `Any` now consistently handles every method, including `HEAD` and `OPTIONS`; `OPTIONS *` also advertises methods implicitly supported by the router.
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.

@@ -250,11 +250,11 @@ class HttpUtils
 	/**
 	 * Get JSON from body
 	 * @param bool $associative
-	 * @param int $depth
 	 * @param int $flags
+	 * @param int $depth
 	 * @return mixed
 	 */
-	public static function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed
+	public static function getJsonBody(bool $associative = false, int $flags = 0, int $depth = 512): mixed
 	{
 		return json_decode(self::getBody(), $associative, $depth, $flags);
 	}
@@ -263,12 +263,15 @@ class HttpUtils
 	 * Output JSON
 	 * @param mixed $data
 	 * @param int $httpCode
+	 * @param int $flags
+	 * @param int $depth
 	 * @return never
 	 */
-	public static function outputJson(mixed $data, int $httpCode = 200): never
+	public static function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): never
 	{
+		$json = json_encode($data, $flags | JSON_THROW_ON_ERROR, $depth);
 		header('Content-type: application/json; charset=utf-8', true, $httpCode);
-		echo json_encode($data);
+		echo $json;
 		die();
 	}
 
