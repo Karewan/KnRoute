@@ -6,6 +6,7 @@ namespace Karewan\KnRoute;
 
 use Karewan\KnRoute\Attributes\Route;
 use Karewan\KnRoute\Dumper\RoutesDumper;
+use Karewan\KnRoute\Exceptions\HttpException;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
 use Karewan\KnRoute\Exceptions\MiddlewareExecutionException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
@@ -42,6 +43,11 @@ class Router
 	/** @var IMiddleware[] */
 	private array $globalMiddlewares = [];
 
+	/** @var array<int,Closure> */
+	private array $errorHandlers = [];
+
+	private ?Closure $defaultErrorHandler = null;
+
 	/**
 	 * The matched controller
 	 * @var null|string
@@ -74,8 +80,9 @@ class Router
 			}
 
 			$this->runMiddlewareStack($this->globalMiddlewares, function () use ($requestMethod): void {
-				// The route. Keep ordinary methods on the shortest possible hot path.
-				switch ($requestMethod) {
+				try {
+					// The route. Keep ordinary methods on the shortest possible hot path.
+					switch ($requestMethod) {
 				case 'HEAD':
 					// A HEAD response must never contain a body, including for explicit HEAD routes.
 					$route = $this->findHeadRoute(HttpUtils::getPath());
@@ -98,7 +105,7 @@ class Router
 
 				default:
 					if (!$this->acceptsAnyMethod && !isset($this->knownMethods[$requestMethod])) {
-						http_response_code(501);
+						$this->handleHttpError(501);
 						return;
 					}
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
@@ -133,14 +140,24 @@ class Router
 						$controllerInstance->{$this->matchedMethod}(...$route);
 					}
 				);
+				} catch (MiddlewareExecutionException $e) {
+					$exception = $e->getMiddlewareException();
+					if (!$exception instanceof HttpException) throw $e;
+					$this->handleHttpException($exception);
+				} catch (MethodNotAllowedException $e) {
+					$this->handleHttpError(405, headers: [
+						'Allow' => join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())),
+					]);
+				} catch (ResourceNotFoundException) {
+					$this->handleHttpError(404);
+				} catch (HttpException $e) {
+					$this->handleHttpException($e);
+				}
 			});
 		} catch (MiddlewareExecutionException $e) {
-			throw $e->getMiddlewareException();
-		} catch (MethodNotAllowedException $e) {
-			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
-			http_response_code(405);
-		} catch (ResourceNotFoundException $e) {
-			http_response_code(404);
+			$exception = $e->getMiddlewareException();
+			if (!$exception instanceof HttpException) throw $exception;
+			$this->handleHttpException($exception);
 		} finally {
 			if (!is_null($headOutputBufferLevel)) {
 				while (ob_get_level() > $headOutputBufferLevel) ob_end_clean();
@@ -174,6 +191,54 @@ class Router
 	public function addGlobalMiddleware(IMiddleware $middleware): void
 	{
 		$this->globalMiddlewares[] = $middleware;
+	}
+
+	/** @param callable(HttpError):void $handler */
+	public function setErrorHandler(int $code, callable $handler): void
+	{
+		$this->assertErrorStatusCode($code);
+		$this->errorHandlers[$code] = Closure::fromCallable($handler);
+	}
+
+	/** @param callable(HttpError):void $handler */
+	public function setDefaultErrorHandler(callable $handler): void
+	{
+		$this->defaultErrorHandler = Closure::fromCallable($handler);
+	}
+
+	private function handleHttpException(HttpException $exception): void
+	{
+		$this->handleHttpError(
+			$exception->getStatusCode(),
+			$exception->getTitle(),
+			$exception->getDetail(),
+			$exception->getHeaders(),
+		);
+	}
+
+	/** @param array<string,string> $headers */
+	private function handleHttpError(int $code, ?string $title = null, ?string $detail = null, array $headers = []): void
+	{
+		$this->assertErrorStatusCode($code);
+		http_response_code($code);
+		foreach ($headers as $name => $value) header("{$name}: {$value}");
+
+		$handler = $this->errorHandlers[$code] ?? $this->defaultErrorHandler;
+		if (is_null($handler)) return;
+
+		$handler(new HttpError(
+			$code,
+			$title ?? HttpStatus::getTitle($code),
+			$detail ?? HttpStatus::getDetail($code),
+			$headers,
+		));
+	}
+
+	private function assertErrorStatusCode(int $code): void
+	{
+		if ($code < 400 || $code > 599) {
+			throw new \InvalidArgumentException('An HTTP error status code must be between 400 and 599.');
+		}
 	}
 
 	/**

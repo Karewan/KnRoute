@@ -11,6 +11,7 @@ use Karewan\KnRoute\Attributes\Head;
 use Karewan\KnRoute\Attributes\Options;
 use Karewan\KnRoute\Attributes\Post;
 use Karewan\KnRoute\Attributes\Route;
+use Karewan\KnRoute\Exceptions\HttpException;
 
 class RoutingController
 {
@@ -182,5 +183,18 @@ class RoutingController
 	public function customMethod(): void
 	{
 		echo 'purged';
+	}
+
+	#[Get('/custom-status')]
+	public function customStatus(): void
+	{
+		http_response_code(409);
+		echo 'custom response';
+	}
+
+	#[Get('/http-error')]
+	public function httpError(): void
+	{
+		throw new HttpException(422, 'The submitted value is invalid.', 'Validation Failed', ['X-Error' => 'validation']);
 	}
 }

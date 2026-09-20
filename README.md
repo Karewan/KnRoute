@@ -23,6 +23,7 @@ Simple and fast PHP 8.3+ router with route attributes and caching.
 		- [Create a middleware with parameters](#create-a-middleware-with-parameters)
 		- [Use a middleware with parameters](#use-a-middleware-with-parameters)
 		- [Use global middlewares](#use-global-middlewares)
+		- [Handle HTTP errors](#handle-http-errors)
 		- [Inspect compiled routes](#inspect-compiled-routes)
 		- [HttpUtils](#httputils)
 	- [Tests](#tests)
@@ -355,7 +356,79 @@ try {
 }
 ```
 
-`UnauthorizedException` is needed here only to stop execution when authentication fails. Ordinary middlewares do not need an exception. This exception belongs to the application and is declared in its own file above; KnRoute does not define or swallow it. An exception thrown by `before()` or `after()` leaves `Router::run()` unchanged, so the front controller can catch it and choose the HTTP response.
+`UnauthorizedException` is needed here only to stop execution when authentication fails. Ordinary middlewares do not need an exception. This exception belongs to the application and is declared in its own file above; KnRoute does not define or swallow it. Except for KnRoute's explicit `HttpException`, an exception thrown by `before()` or `after()` leaves `Router::run()` unchanged, so the front controller can catch it and choose the HTTP response.
+
+### Handle HTTP errors
+
+Router-generated `404`, `405`, and `501` errors can be rendered with a handler for one status or a default handler. A status-specific handler takes precedence. The router sets the status and required protocol headers, such as `Allow` on a `405`, before invoking the handler.
+
+```php
+use Karewan\KnRoute\HttpError;
+use Karewan\KnRoute\HttpUtils;
+
+$router->setErrorHandler(404, function (HttpError $error): void {
+	HttpUtils::outputHtml(
+		View::render('errors.php', ['error' => $error]),
+		$error->code,
+	);
+});
+
+$router->setDefaultErrorHandler(function (HttpError $error): void {
+	HttpUtils::outputError(
+		code: $error->code,
+		title: $error->title,
+		detail: $error->detail,
+	);
+});
+```
+
+The resolution order is always the same: KnRoute first looks for a handler registered for the exact status, then uses the default handler. If neither exists, it only sets the HTTP status, preserving its previous behavior. Handlers run for router-generated `404`, `405`, and `501` responses and for an explicit `HttpException`.
+
+A dedicated renderer class can keep this configuration out of the application bootstrap:
+
+```php
+final class JsonErrorRenderer
+{
+	public function render(HttpError $error): void
+	{
+		HttpUtils::outputError(
+			code: $error->code,
+			title: $error->title,
+			detail: $error->detail,
+			extensions: ['request_id' => RequestId::current()],
+		);
+	}
+}
+
+$errorRenderer = new JsonErrorRenderer();
+
+$router->setDefaultErrorHandler($errorRenderer->render(...));
+```
+
+The handler is any PHP callable; it does not need to be a controller. A small renderer or view class is generally a clearer fit because error rendering is not a routed application action.
+
+An action or middleware can intentionally use the same error pipeline by throwing `HttpException`:
+
+```php
+use Karewan\KnRoute\Exceptions\HttpException;
+
+throw new HttpException(
+	statusCode: 422,
+	detail: 'The submitted email address is invalid.',
+	title: 'Validation Failed',
+);
+```
+
+Calling `HttpUtils::setStatus()`, `http_response_code()`, or an output helper with an error status does not invoke an error handler. Those calls mean that the application owns the response body. Other application and configuration exceptions continue to propagate normally.
+
+`HttpUtils::outputError()` produces a standard `application/json` response ordered as `status`, `path`, `title`, `detail`, then any custom members. Only the error status is required. Omitted title and detail values come from KnRoute's catalogue of usable `4xx` and `5xx` HTTP errors, while `path` is always populated from the current request path. Custom members can be added with `extensions`; the standard members cannot be overwritten. Unassigned application-specific codes receive a generic title and detail based on their status class.
+
+```php
+HttpUtils::outputError(
+	code: 404,
+	extensions: ['trace_id' => '01K5...'],
+);
+```
 
 ### Inspect compiled routes
 
@@ -395,6 +468,7 @@ function getClientPort(): ?int;
 function getBody(): string;
 function getJsonBody(bool $associative = false, int $flags = 0, int $depth = 512): mixed;
 function outputJson(mixed $data, int $httpCode = 200, int $flags = 0, int $depth = 512): void;
+function outputError(int $code, ?string $title = null, ?string $detail = null, array $extensions = [], int $flags = 0, int $depth = 512): void;
 function outputHtml(string $html, int $httpCode = 200): void;
 function outputText(string $text, int $httpCode = 200, string $charset = 'utf-8'): void;
 function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): void;

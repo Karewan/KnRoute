@@ -1,6 +1,7 @@
 v4.0.0 (unreleased)
 ----------------------------
 ### Added
+* **HTTP error handlers:** Added status-specific and default router error handlers, application-triggered `HttpException` errors, standard 4xx/5xx metadata, and JSON error responses.
 * **HTTP method attributes:** Added `Head` and `Options` route attributes.
 * **Global middleware:** Added `Router::addGlobalMiddleware()` for logic that must run before routes and automatic responses.
 * **Routing tests:** Added a dependency-free functional test suite covering route results, parameters, HTTP methods, and error statuses.

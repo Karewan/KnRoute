@@ -285,6 +285,36 @@ class HttpUtils
 	}
 
 	/**
+	 * Output a JSON error response.
+	 *
+	 * @param array<string,mixed> $extensions
+	 */
+	public static function outputError(
+		int $code,
+		?string $title = null,
+		?string $detail = null,
+		array $extensions = [],
+		int $flags = 0,
+		int $depth = 512,
+	): void {
+		if ($code < 400 || $code > 599) {
+			throw new \InvalidArgumentException('An error status code must be between 400 and 599.');
+		}
+
+		$error = [
+			'status' => $code,
+			'path' => self::getPath(),
+			'title' => $title ?? HttpStatus::getTitle($code),
+			'detail' => $detail ?? HttpStatus::getDetail($code),
+		];
+		$error += $extensions;
+
+		$json = json_encode($error, $flags | JSON_THROW_ON_ERROR, $depth);
+		header('Content-type: application/json; charset=utf-8', true, $code);
+		echo $json;
+	}
+
+	/**
 	 * Output HTML
 	 * @param string $html
 	 * @param int $httpCode

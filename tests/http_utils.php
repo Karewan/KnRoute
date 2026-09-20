@@ -22,6 +22,7 @@ namespace {
 	use Tests\HeaderCapture;
 
 	require __DIR__ . '/../src/HttpUtils.php';
+	require __DIR__ . '/../src/HttpStatus.php';
 
 	$_SERVER = [
 		'HTTP_HOST' => 'first.example:8080',
@@ -146,6 +147,26 @@ namespace {
 	ob_start();
 	HttpUtils::outputText('test response');
 	assertSame('test response', ob_get_clean(), 'text output returns after writing response');
+
+	HeaderCapture::$headers = [];
+	$_SERVER['REQUEST_URI'] = '/missing?source=test';
+	ob_start();
+	HttpUtils::outputError(404, extensions: ['trace_id' => 'abc']);
+	$error = json_decode(ob_get_clean(), true, flags: JSON_THROW_ON_ERROR);
+	assertSame([
+		'status' => 404,
+		'path' => '/missing',
+		'title' => 'Not Found',
+		'detail' => 'The requested resource was not found.',
+		'trace_id' => 'abc',
+	], $error, 'JSON error defaults, request path and extensions');
+	assertSame(['Content-type: application/json; charset=utf-8'], HeaderCapture::$headers, 'JSON error content type');
+
+	try {
+		HttpUtils::outputError(200);
+		throw new RuntimeException('A successful error status was accepted.');
+	} catch (\InvalidArgumentException) {
+	}
 	assertSame('void', (string) (new ReflectionMethod(HttpUtils::class, 'setStatus'))->getReturnType(), 'status helper returns control');
 
 	echo "PASS  HttpUtils is stateless and normalizes headers and trusted proxies\n";
