@@ -114,7 +114,10 @@ class IndexController
 	#[Post('/login')]
 	public function login(): void
 	{
-		HttpUtils::outputJson(['error' => 'Bad credentials']);
+		HttpUtils::outputError(
+			code: 401,
+			detail: 'Bad credentials',
+		);
 	}
 }
 ```
@@ -165,7 +168,7 @@ Matching is performed against the encoded request path. Captured values are then
 
 ### Variable types
 
-| Type | Pattern | Examples |
+| Type | Pattern | Decoded examples |
 | --- | --- | --- |
 | `alpha` | ASCII letters | `abc`, `KnRoute` |
 | `alnum` | ASCII letters and decimal digits | `abc123` |
@@ -174,7 +177,7 @@ Matching is performed against the encoded request path. Captured values are then
 | `hex` | Uppercase or lowercase hexadecimal digits | `deadBEEF` |
 | `slug` | Alphanumeric words separated by single hyphens | `my-page-2` |
 | `uuid` | Canonical 8-4-4-4-12 hexadecimal UUID | `550e8400-e29b-41d4-a716-446655440000` |
-| `segment` | One non-empty path segment; `/` is excluded | `file.txt`, `a+b` |
+| `segment` | One non-empty path segment; `/` is excluded | `file.txt`, `a b` |
 | `path` | A non-empty value that may contain `/` | `images/icons/logo.svg` |
 
 `uint` and `int` reject leading zeroes such as `042` and values outside the platform's integer range; `int` also rejects `-0`. These bounds are embedded in the compiled route expressions, including cached routes. `slug` rejects leading, trailing, and consecutive hyphens. Use `path` only as the final variable unless the following static text makes the intended boundary unambiguous.
@@ -244,7 +247,7 @@ use App\Middlewares\AuthMiddleware;
 use Karewan\KnRoute\Attributes\Get;
 use Karewan\KnRoute\HttpUtils;
 
-#[AuthMiddleware()]
+#[AuthMiddleware]
 class TestController
 {
 	#[Get('/')]
@@ -270,7 +273,7 @@ use Karewan\KnRoute\HttpUtils;
 
 class TestController
 {
-	#[Get('/'), AuthMiddleware()]
+	#[Get('/'), AuthMiddleware]
 	public function index(): void
 	{
 		HttpUtils::outputText("TestController@index\n");
