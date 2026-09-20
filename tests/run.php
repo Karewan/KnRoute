@@ -59,7 +59,7 @@ $tests = [
 	['OPTIONS is handled automatically', 'OPTIONS', '/static', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS', 'cache-control' => 'no-store']],
 	['OPTIONS executes an Any route', 'OPTIONS', '/any', 200, 'any', ROUTING_CONTROLLER, 'anyMethod', ['cache-control' => 'no-store'], ['allow']],
 	['OPTIONS asterisk lists only application-declared methods', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, DELETE, OPTIONS, PURGE']],
-	['OPTIONS asterisk does not invent router methods', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET'], [], false, 'NoAny'],
+	['OPTIONS asterisk includes methods implied by GET', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS'], [], false, 'NoAny'],
 	['HEAD executes GET fallback without returning its body', 'HEAD', '/head-fallback', 200, '', ROUTING_CONTROLLER, 'headFallback', ['x-head-fallback' => 'executed'], ['cache-control', 'pragma', 'expires']],
 	['HEAD executes Any fallback without returning its body', 'HEAD', '/any', 200, '', ROUTING_CONTROLLER, 'anyMethod'],
 	['HEAD is rejected when GET is unavailable', 'HEAD', '/post-only', 405, '', null, null, ['allow' => 'POST, OPTIONS']]

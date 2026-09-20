@@ -680,7 +680,7 @@ class Router
 	private function findOptionsRoute(string $pathinfo): array
 	{
 		if ($pathinfo === '*') {
-			header('Allow: ' . join(', ', $this->getDeclaredMethods()));
+			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($this->getDeclaredMethods())));
 			http_response_code(204);
 			die();
 		}
