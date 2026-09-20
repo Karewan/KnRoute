@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Karewan\KnRoute\Routes;
 
-use DomainException;
 use Karewan\KnRoute\Attributes\Route;
 use LogicException;
 
@@ -30,13 +29,15 @@ class RoutesCompiler
 	 * @var array<string,string>
 	 */
 	private const array VAR_REGEX = [
-		'slug' => '[a-z0-9\-]+',
-		'hex' => '[a-f0-9]+',
-		'alpha' => '[a-z0-9]+',
-		'letters' => '[a-z]+',
-		'num' => '[0-9]+',
-		'any' => '[^\/]+',
-		'all' => '.*'
+		'alpha' => '[A-Za-z]+',
+		'alnum' => '[A-Za-z0-9]+',
+		'uint' => '(?:0|[1-9][0-9]*)',
+		'int' => '(?:0|-?[1-9][0-9]*)',
+		'hex' => '[A-Fa-f0-9]+',
+		'slug' => '[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*',
+		'uuid' => '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}',
+		'segment' => '[^/]+',
+		'path' => '.+'
 	];
 
 	/**
@@ -45,9 +46,9 @@ class RoutesCompiler
 	 */
 	public static function compile(Route $route): CompiledRoute
 	{
-		self::extractVarsRegex($route, $route->getPath());
+		$pattern = self::parseVariables($route, $route->getPath());
 
-		$result = self::compilePattern($route, $route->getPath());
+		$result = self::compilePattern($route, $pattern);
 
 		return new CompiledRoute(
 			$result['staticPrefix'],
@@ -62,29 +63,54 @@ class RoutesCompiler
 	 * @param string $pattern
 	 * @return string
 	 */
-	private static function extractVarsRegex(Route $route, string $pattern): string
+	private static function parseVariables(Route $route, string $pattern): string
 	{
 		$varsRegex = [];
-		$pattern = $route->getPath();
+		$normalizedPattern = '';
+		$offset = 0;
 
-		$start = -1;
-		while (($start = strpos($pattern, '{', $start + 1)) !== false) {
-			if (!($end = strpos($pattern, '}', $start + 1))) continue;
+		while (($brace = strcspn($pattern, '{}', $offset)) + $offset < strlen($pattern)) {
+			$start = $offset + $brace;
+			if ($pattern[$start] === '}') {
+				throw new LogicException(sprintf('Unexpected "}" in route pattern "%s".', $pattern));
+			}
 
-			$var = substr($pattern, $start + 1, $end - $start - 1);
+			$end = strpos($pattern, '}', $start + 1);
+			if ($end === false) {
+				throw new LogicException(sprintf('Unclosed variable in route pattern "%s".', $pattern));
+			}
 
-			$args = explode(':', $var);
-			if (!isset($args[1], self::VAR_REGEX[$args[1]])) throw new LogicException('Bad var type for "' . $args[0] . '"');
+			$declaration = substr($pattern, $start + 1, $end - $start - 1);
+			if (!preg_match('/^([A-Za-z_][A-Za-z0-9_]*):([a-z][a-z0-9_]*)$/D', $declaration, $matches)) {
+				throw new LogicException(sprintf('Invalid variable declaration "{%s}" in route pattern "%s"; expected "{name:type}".', $declaration, $pattern));
+			}
 
-			$varsRegex[$args[0]] = self::VAR_REGEX[$args[1]];
+			[, $name, $type] = $matches;
+			if (strlen($name) > self::VARIABLE_MAXIMUM_LENGTH) {
+				throw new LogicException(sprintf(
+					'Variable name "%s" cannot exceed %d characters in route pattern "%s".',
+					$name,
+					self::VARIABLE_MAXIMUM_LENGTH,
+					$pattern
+				));
+			}
+			if (!isset(self::VAR_REGEX[$type])) {
+				throw new LogicException(sprintf('Unknown variable type "%s" for "%s" in route pattern "%s".', $type, $name, $pattern));
+			}
+			if (isset($varsRegex[$name])) {
+				throw new LogicException(sprintf('Route pattern "%s" cannot reference variable name "%s" more than once.', $pattern, $name));
+			}
 
-			$pattern = str_replace($var, $args[0], $pattern);
+			$varsRegex[$name] = self::VAR_REGEX[$type];
+			$normalizedPattern .= substr($pattern, $offset, $start - $offset) . '{' . $name . '}';
+			$offset = $end + 1;
 		}
 
-		$route->setPath($pattern);
+		$normalizedPattern .= substr($pattern, $offset);
+
 		$route->setVarsRegex($varsRegex);
 
-		return $pattern;
+		return $normalizedPattern;
 	}
 
 	/**
@@ -97,16 +123,12 @@ class RoutesCompiler
 	{
 		$tokens = [];
 		$variables = [];
-		$matches = [];
 		$pos = 0;
 		$defaultSeparator = '/';
 
-		// Match all variables enclosed in "{}" and iterate over them. But we only want to match the innermost variable
-		// in case of nested "{}", e.g. {foo{bar}}. This in ensured because \w does not match "{" or "}" itself.
-		preg_match_all('#\{(!)?([\w\x80-\xFF]+)\}#', $pattern, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+		preg_match_all('#\{([A-Za-z_][A-Za-z0-9_]*)\}#', $pattern, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
 		foreach ($matches as $match) {
-			$important = $match[1][1] >= 0;
-			$varName = $match[2][0];
+			$varName = $match[1][0];
 			// get all static text preceding the current variable
 			$precedingText = substr($pattern, $pos, $match[0][1] - $pos);
 			$pos = $match[0][1] + strlen($match[0][0]);
@@ -117,19 +139,6 @@ class RoutesCompiler
 				$precedingChar = substr($precedingText, -1);
 			}
 			$isSeparator = '' !== $precedingChar && str_contains(static::SEPARATORS, $precedingChar);
-
-			// A PCRE subpattern name must start with a non-digit. Also a PHP variable cannot start with a digit so the
-			// variable would not be usable as a Controller action argument.
-			if (preg_match('/^\d/', $varName)) {
-				throw new DomainException(sprintf('Variable name "%s" cannot start with a digit in route pattern "%s". Please use a different name.', $varName, $pattern));
-			}
-			if (in_array($varName, $variables)) {
-				throw new LogicException(sprintf('Route pattern "%s" cannot reference variable name "%s" more than once.', $pattern, $varName));
-			}
-
-			if (strlen($varName) > self::VARIABLE_MAXIMUM_LENGTH) {
-				throw new DomainException(sprintf('Variable name "%s" cannot be longer than %d characters in route pattern "%s". Please use a shorter name.', $varName, self::VARIABLE_MAXIMUM_LENGTH, $pattern));
-			}
 
 			if ($isSeparator && $precedingText !== $precedingChar) {
 				$tokens[] = ['text', substr($precedingText, 0, -strlen($precedingChar))];
@@ -165,13 +174,7 @@ class RoutesCompiler
 				$regexp = self::transformCapturingGroupsToNonCapturings($regexp);
 			}
 
-			if ($important) {
-				$token = ['variable', $isSeparator ? $precedingChar : '', $regexp, $varName, false, true];
-			} else {
-				$token = ['variable', $isSeparator ? $precedingChar : '', $regexp, $varName];
-			}
-
-			$tokens[] = $token;
+			$tokens[] = ['variable', $isSeparator ? $precedingChar : '', $regexp, $varName];
 			$variables[] = $varName;
 		}
 

@@ -20,13 +20,13 @@ class RoutingController
 		echo 'static';
 	}
 
-	#[Get('/users/{id:num}')]
+	#[Get('/users/{id:uint}')]
 	public function user(string $id): void
 	{
 		echo "user:{$id}";
 	}
 
-	#[Delete('/resources/{id:num}')]
+	#[Delete('/resources/{id:uint}')]
 	public function deleteResource(string $id): void
 	{
 		echo "deleted:{$id}";
@@ -56,19 +56,25 @@ class RoutingController
 		echo 'options';
 	}
 
-	#[Get('/typed/{id:num}')]
+	#[Get('/typed/{id:uint}')]
 	public function typedInteger(int $id): void
 	{
 		echo get_debug_type($id) . ":{$id}";
 	}
 
-	#[Get('/variables/{alpha:alpha}/{letters:letters}/{slug:slug}/{hex:hex}/{value:any}')]
-	public function variableTypes(string $alpha, string $letters, string $slug, string $hex, string $value): void
+	#[Get('/variables/{first:alpha}/{second:alpha}/{slug:slug}/{hex:hex}/{value:segment}')]
+	public function variableTypes(string $first, string $second, string $slug, string $hex, string $value): void
 	{
-		echo implode('|', [$alpha, $letters, $slug, $hex, $value]);
+		echo implode('|', [$first, $second, $slug, $hex, $value]);
 	}
 
-	#[Get('/files/{path:all}')]
+	#[Get('/strict-variables/{alnum:alnum}/{signed:int}/{unsigned:uint}/{uuid:uuid}/{segment:segment}/{path:path}')]
+	public function strictVariableTypes(string $alnum, string $signed, string $unsigned, string $uuid, string $segment, string $path): void
+	{
+		echo implode('|', [$alnum, $signed, $unsigned, $uuid, $segment, $path]);
+	}
+
+	#[Get('/files/{path:path}')]
 	public function catchAll(string $path): void
 	{
 		echo "file:{$path}";

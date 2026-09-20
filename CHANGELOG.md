@@ -13,6 +13,8 @@ v4.0.0 (unreleased)
 * **Controller discovery:** Class discovery no longer explicitly includes scanned files; files declaring multiple named classes are rejected, anonymous and abstract classes are ignored, and only methods declared directly on each concrete class are registered.
 * **Route paths:** Route declarations without a leading `/` are now rejected.
 * **Deterministic route ordering:** Route compilation now uses a total, deterministic order across files and PHP versions, with explicit-method and static routes retaining precedence.
+* **Route variables:** Variable declarations now require the strict `{name:type}` syntax with valid, unique PHP-compatible names; malformed declarations, unknown types, and mismatches with controller parameters are rejected during compilation.
+* **Variable types:** Corrected the misleading `alpha`, `hex`, and `slug` patterns and added `alnum`, `int`, `uint`, `segment`, `path`, and `uuid` types.
 * **Case-sensitive routes:** Request paths are no longer converted to lowercase before route matching.
 * **HEAD and OPTIONS semantics:** HEAD now falls back to GET without a response body, automatic OPTIONS responses advertise the available methods, and invalid HEAD requests correctly return HTTP 405.
 * **HTTP method routing:** Explicit routes now take priority over `Any`, conflicting routes and invalid method tokens are rejected during compilation, and unsupported methods return HTTP 501.
@@ -23,6 +25,7 @@ v4.0.0 (unreleased)
 
 ### Removed
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.
+* **Legacy variable types:** Removed `letters`, `num`, `any`, and `all`; use `alpha`, `uint`, `segment`, and `path` respectively.
 
 
 v3.0.7 (2026-07-30)

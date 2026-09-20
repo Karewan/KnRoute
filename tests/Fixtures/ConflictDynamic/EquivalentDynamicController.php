@@ -8,9 +8,9 @@ use Karewan\KnRoute\Attributes\Get;
 
 class EquivalentDynamicController
 {
-	#[Get('/users/{id:num}')]
+	#[Get('/users/{id:uint}')]
 	public function byId(string $id): void {}
 
-	#[Get('/users/{userId:num}')]
+	#[Get('/users/{userId:uint}')]
 	public function byUserId(string $userId): void {}
 }

@@ -352,6 +352,7 @@ class Router
 
 				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
 					$route = $attribute->newInstance();
+					$this->validateRouteParameters($route, $method);
 					$route->setAction([$controller->getName(), $method->getName()]);
 					$routes[] = $route;
 				}
@@ -359,6 +360,39 @@ class Router
 		}
 
 		return $routes;
+	}
+
+	/**
+	 * Ensure captured variables can be passed as named controller arguments.
+	 */
+	private function validateRouteParameters(Route $route, ReflectionMethod $method): void
+	{
+		$variables = array_fill_keys($route->compile()->getPathVariables(), true);
+		$parameters = [];
+
+		foreach ($method->getParameters() as $parameter) {
+			$parameters[$parameter->getName()] = true;
+			if (!$parameter->isOptional() && !$parameter->isVariadic() && !isset($variables[$parameter->getName()])) {
+				throw new LogicException(sprintf(
+					'Required parameter "$%s" of %s::%s() is missing from route pattern "%s"',
+					$parameter->getName(),
+					$method->getDeclaringClass()->getName(),
+					$method->getName(),
+					$route->getPath()
+				));
+			}
+		}
+
+		foreach ($variables as $variable => $_) {
+			if (!isset($parameters[$variable])) {
+				throw new LogicException(sprintf(
+					'Route variable "%s" has no matching parameter in %s::%s()',
+					$variable,
+					$method->getDeclaringClass()->getName(),
+					$method->getName()
+				));
+			}
+		}
 	}
 
 	/**

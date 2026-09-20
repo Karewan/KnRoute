@@ -15,11 +15,16 @@ $tests = [
 	['Explicit HEAD matches its route without a body', 'HEAD', '/explicit-head', 200, '', ROUTING_CONTROLLER, 'explicitHead', [], ['cache-control', 'pragma', 'expires']],
 	['Explicit OPTIONS matches its route', 'OPTIONS', '/explicit-options', 200, 'options', ROUTING_CONTROLLER, 'explicitOptions', ['allow' => 'OPTIONS', 'cache-control' => 'no-store']],
 	['Numeric parameter is coerced to a typed integer', 'GET', '/typed/42', 200, 'int:42', ROUTING_CONTROLLER, 'typedInteger'],
-	['Variable regex types accept valid values', 'GET', '/variables/a1/letters/a-slug/deadbeef/value', 200, 'a1|letters|a-slug|deadbeef|value', ROUTING_CONTROLLER, 'variableTypes'],
-	['Variable regex types reject invalid values', 'GET', '/variables/a1/letters/not_ok/deadbeef/value', 404, '', null, null],
+	['Variable regex types accept valid values', 'GET', '/variables/Alpha/letters/a-slug/DeadBeef/value', 200, 'Alpha|letters|a-slug|DeadBeef|value', ROUTING_CONTROLLER, 'variableTypes'],
+	['Variable regex types reject invalid values', 'GET', '/variables/Alpha/letters/not_ok/deadbeef/value', 404, '', null, null],
+	['Strict variable types accept valid values', 'GET', '/strict-variables/A1b2/-42/42/550e8400-e29b-41d4-a716-446655440000/a+b/path/to/file', 200, 'A1b2|-42|42|550e8400-e29b-41d4-a716-446655440000|a+b|path/to/file', ROUTING_CONTROLLER, 'strictVariableTypes'],
+	['Canonical integers reject negative zero', 'GET', '/strict-variables/A1b2/-0/42/550e8400-e29b-41d4-a716-446655440000/value/path', 404, '', null, null],
+	['Canonical unsigned integers reject leading zeroes', 'GET', '/strict-variables/A1b2/-42/042/550e8400-e29b-41d4-a716-446655440000/value/path', 404, '', null, null],
+	['Alpha variables reject digits', 'GET', '/variables/a1/letters/a-slug/deadbeef/value', 404, '', null, null],
+	['Slugs reject consecutive hyphens', 'GET', '/variables/Alpha/letters/a--slug/deadbeef/value', 404, '', null, null],
 	['Catch-all variable accepts path separators', 'GET', '/files/path/to/file.txt', 200, 'file:path/to/file.txt', ROUTING_CONTROLLER, 'catchAll'],
-	['Captured values are URL-decoded', 'GET', '/variables/a1/letters/a-slug/deadbeef/hello%20world', 200, 'a1|letters|a-slug|deadbeef|hello world', ROUTING_CONTROLLER, 'variableTypes'],
-	['Plus signs in captured values are preserved', 'GET', '/variables/a1/letters/a-slug/deadbeef/hello+world', 200, 'a1|letters|a-slug|deadbeef|hello+world', ROUTING_CONTROLLER, 'variableTypes'],
+	['Captured values are URL-decoded', 'GET', '/variables/Alpha/letters/a-slug/deadbeef/hello%20world', 200, 'Alpha|letters|a-slug|deadbeef|hello world', ROUTING_CONTROLLER, 'variableTypes'],
+	['Plus signs in captured values are preserved', 'GET', '/variables/Alpha/letters/a-slug/deadbeef/hello+world', 200, 'Alpha|letters|a-slug|deadbeef|hello+world', ROUTING_CONTROLLER, 'variableTypes'],
 	['Query string does not affect route matching', 'GET', '/static?filter=test', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
 	['Routes are case-sensitive', 'GET', '/STATIC', 404, '', null, null],
 	['Trailing slash is normalized', 'GET', '/static/', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
@@ -59,7 +64,16 @@ $compilationTests = [
 	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class],
 	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class],
 	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class],
-	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class]
+	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class],
+	['Variables require a type', 'InvalidVariableMissingType', LogicException::class],
+	['Variable names must be valid', 'InvalidVariableName', LogicException::class],
+	['Variable names have a bounded length', 'InvalidVariableNameLength', LogicException::class],
+	['Variable names must be unique', 'InvalidVariableDuplicate', LogicException::class],
+	['Variable types must be known', 'InvalidVariableType', LogicException::class],
+	['Variables must be closed', 'InvalidVariableUnclosed', LogicException::class],
+	['Closing braces must match variables', 'InvalidVariableClosingBrace', LogicException::class],
+	['Route variables must match controller parameters', 'InvalidVariableParameter', LogicException::class],
+	['Required controller parameters must match route variables', 'MissingVariableParameter', LogicException::class]
 ];
 
 $failures = 0;

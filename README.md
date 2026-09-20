@@ -139,10 +139,10 @@ class IndexController
 
 ### Use variables inside a path
 
-Name of the variable followed by the type.
+Variables use the strict `{name:type}` syntax. Names must be valid ASCII PHP parameter names, must be unique in the route, and are limited to 32 characters.
 
 ```php
-#[Post('/amd/{id:num}/ryzen/{model:alpha}')]
+#[Post('/amd/{id:uint}/ryzen/{model:alnum}')]
 public function topSecret(int $id, string $model):void {
 	echo "AmdController@topSecret(id={$id},model={$model})";
 }
@@ -150,15 +150,17 @@ public function topSecret(int $id, string $model):void {
 
 ### Variable types with their corresponding regex
 
-```
-:alpha		[a-z0-9]+
-:letters	[a-z]+
-:num		[0-9]+
-:slug		[a-z0-9\-]+
-:hex		[a-f0-9]+'
-:any		[^\/]+
-:all		.*
-```
+| Type | Matches |
+| --- | --- |
+| `alpha` | ASCII letters (`A-Z`, `a-z`) |
+| `alnum` | ASCII letters and decimal digits |
+| `uint` | An unsigned decimal integer in canonical form |
+| `int` | A signed or unsigned decimal integer in canonical form |
+| `hex` | Uppercase or lowercase hexadecimal digits |
+| `slug` | Alphanumeric words separated by single hyphens |
+| `uuid` | A canonical 8-4-4-4-12 hexadecimal UUID string |
+| `segment` | One non-empty path segment; `/` is excluded |
+| `path` | A non-empty value that may contain `/` characters |
 
 ### Create a middleware
 
