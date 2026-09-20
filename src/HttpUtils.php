@@ -8,8 +8,15 @@ use InvalidArgumentException;
 
 class HttpUtils
 {
-	/** @var string[] */
-	private static array $trustedProxyHeaders = [];
+	/** Headers commonly used by reverse proxies and CDNs to expose the client address. */
+	private const array FORWARDED_IP_HEADERS = [
+		'Forwarded',
+		'X-Forwarded-For',
+		'CF-Connecting-IP',
+		'True-Client-IP',
+		'Fastly-Client-IP',
+		'X-Real-IP',
+	];
 
 	/** @var array<string,true> */
 	private static array $trustedProxies = [];
@@ -181,16 +188,7 @@ class HttpUtils
 	}
 
 	/**
-	 * Settings trusted proxy headers for the getIp method
-	 * @param string[] $headers
-	 */
-	public static function setTrustedProxyHeaders(array $headers): void
-	{
-		self::$trustedProxyHeaders = array_values(array_unique(array_map(self::normalizeHeaderName(...), $headers)));
-	}
-
-	/**
-	 * Set the proxy IP addresses allowed to provide trusted forwarding headers.
+	 * Set the proxy IP addresses allowed to provide forwarding headers.
 	 * @param string[] $proxies
 	 */
 	public static function setTrustedProxies(array $proxies): void
@@ -394,21 +392,50 @@ class HttpUtils
 	private static function normalizeIp(): string
 	{
 		$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-		if (!isset(self::$trustedProxies[$remoteAddress])) return $remoteAddress;
+		if (!self::isTrustedProxy($remoteAddress)) return $remoteAddress;
 
-		foreach (self::$trustedProxyHeaders as $header) {
+		foreach (self::FORWARDED_IP_HEADERS as $header) {
 			$headerValue = self::getHeader($header);
+			if ($headerValue === '') continue;
 
-			if ($headerValue !== '') {
-				$ips = explode(',', $headerValue);
-				$clientIp = trim($ips[0]);
+			$forwardedAddresses = $header === 'Forwarded'
+				? self::parseForwardedHeader($headerValue)
+				: explode(',', $headerValue);
+			$currentAddress = $remoteAddress;
 
-				if (filter_var($clientIp, FILTER_VALIDATE_IP)) {
-					return $clientIp;
-				}
+			for ($i = count($forwardedAddresses) - 1; $i >= 0 && self::isTrustedProxy($currentAddress); $i--) {
+				$forwardedAddress = self::normalizeForwardedAddress($forwardedAddresses[$i]);
+				if ($forwardedAddress === null) break;
+				$currentAddress = $forwardedAddress;
 			}
+
+			return $currentAddress;
 		}
 
 		return $remoteAddress;
+	}
+
+	/** @return string[] */
+	private static function parseForwardedHeader(string $header): array
+	{
+		preg_match_all('/(?:^|[,;])\s*for=(?:"([^"]+)"|([^,;\s]+))/i', $header, $matches, PREG_SET_ORDER);
+		return array_map(static fn(array $match): string => $match[1] !== '' ? $match[1] : $match[2], $matches);
+	}
+
+	private static function normalizeForwardedAddress(string $address): ?string
+	{
+		$address = trim($address, " \t\n\r\0\x0B\"");
+		if (preg_match('/^\[([^]]+)](?::\d+)?$/', $address, $match)) {
+			$address = $match[1];
+		} elseif (preg_match('/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/', $address, $match)) {
+			$address = $match[1];
+		}
+
+		return filter_var($address, FILTER_VALIDATE_IP) === false ? null : $address;
+	}
+
+	private static function isTrustedProxy(string $address): bool
+	{
+		return isset(self::$trustedProxies[$address]);
 	}
 }

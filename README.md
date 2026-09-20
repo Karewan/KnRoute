@@ -351,7 +351,6 @@ function getLanguages(): string;
 function getAcceptEncoding(): string;
 function getReferer(): string;
 function isXmlHttpRequest(): bool;
-function setTrustedProxyHeaders(array $headers): void;
 function setTrustedProxies(array $proxies): void;
 function getIp(): string;
 function getServerPort(): int;
@@ -367,18 +366,17 @@ function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
 
-`HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()`, `setHeaders()`, and `setTrustedProxyHeaders()` are normalized to standard title case.
+`HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()` and `setHeaders()` are normalized to standard title case.
 
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
 
-No proxy address or proxy header is trusted by default. If the application runs behind a trusted reverse proxy, explicitly configure both its IP address and the headers it controls:
+No proxy address is trusted by default. If the application runs behind trusted reverse proxies, configure their individual IPv4/IPv6 addresses:
 
 ```php
-HttpUtils::setTrustedProxies(['10.0.0.10', '2001:db8::10']);
-HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP', 'X-Forwarded-For']);
+HttpUtils::setTrustedProxies(['10.0.0.10', '10.0.0.11', '2001:db8::10']);
 ```
 
-Forwarding headers are ignored unless `REMOTE_ADDR` exactly matches a configured trusted proxy. When none of the configured headers contains a valid IP address, `getIp()` falls back to `REMOTE_ADDR`.
+`getIp()` recognizes the standard `Forwarded` header and the commonly deployed `X-Forwarded-For`, `CF-Connecting-IP`, `True-Client-IP`, `Fastly-Client-IP`, and `X-Real-IP` headers. They are ignored unless `REMOTE_ADDR` belongs to a configured trusted proxy. Proxy chains are traversed from right to left and stop at the first untrusted address, preventing client-supplied entries to its left from being trusted. Your edge proxy must overwrite or remove these headers before forwarding requests.
 
 ## Tests
 

@@ -57,12 +57,30 @@ namespace {
 	assertSame('second', HttpUtils::getHeaders()['X-Custom-Header'] ?? null, 'normalized headers');
 	assertSame('192.0.2.11', HttpUtils::getIp(), 'uncached remote address');
 
-	HttpUtils::setTrustedProxyHeaders(['x-forwarded-for']);
 	HttpUtils::setTrustedProxies(['192.0.2.11']);
 	$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7, 192.0.2.11';
 	assertSame('203.0.113.7', HttpUtils::getIp(), 'trusted proxy header');
 
+	HttpUtils::setTrustedProxies(['192.0.2.12', '192.0.2.11', '2001:db8:1234::10', '2001:db8:1234::11']);
 	$_SERVER['REMOTE_ADDR'] = '192.0.2.12';
+	$_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.9, 203.0.113.8, 192.0.2.11';
+	assertSame('203.0.113.8', HttpUtils::getIp(), 'stop at first untrusted proxy from the right');
+	$_SERVER['HTTP_X_FORWARDED_FOR'] = 'spoofed, 198.51.100.9, 192.0.2.11';
+	assertSame('198.51.100.9', HttpUtils::getIp(), 'ignore spoofed values left of an untrusted address');
+	$_SERVER['REMOTE_ADDR'] = '2001:db8:1234::10';
+	$_SERVER['HTTP_X_FORWARDED_FOR'] = '2001:db8:ffff::20, 2001:db8:1234::11';
+	assertSame('2001:db8:ffff::20', HttpUtils::getIp(), 'IPv6 proxy chain');
+	unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+	$_SERVER['HTTP_FORWARDED'] = 'for="[2001:db8:ffff::21]:443";proto=https, for="[2001:db8:1234::11]"';
+	assertSame('2001:db8:ffff::21', HttpUtils::getIp(), 'standard Forwarded header');
+	unset($_SERVER['HTTP_FORWARDED']);
+	$_SERVER['HTTP_CF_CONNECTING_IP'] = '198.51.100.10';
+	assertSame('198.51.100.10', HttpUtils::getIp(), 'common CDN client IP header');
+
+	$_SERVER['REMOTE_ADDR'] = '192.0.2.12';
+	HttpUtils::setTrustedProxies(['192.0.2.11']);
+	unset($_SERVER['HTTP_CF_CONNECTING_IP']);
+	$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7';
 	assertSame('192.0.2.12', HttpUtils::getIp(), 'untrusted proxy ignores forwarding header');
 
 	HttpUtils::setHeader('x-powered-by', 'KnRoute');
