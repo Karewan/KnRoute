@@ -7,6 +7,7 @@ v4.0.0 (unreleased)
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
 * **Typed route parameters:** Controller methods are now invoked through reflection so compatible captured values, such as a numeric route parameter passed to an `int`, are coerced correctly.
+* **Case-sensitive routes:** Request paths are no longer converted to lowercase before route matching.
 
 ### Removed
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.
