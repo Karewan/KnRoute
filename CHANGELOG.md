@@ -6,6 +6,9 @@ v4.0.0 (unreleased)
 * **Routing tests:** Added a dependency-free functional test suite covering route results, parameters, HTTP methods, and error statuses.
 * **Cache format versioning:** Added an integer format version to route caches so incompatible or legacy caches are automatically regenerated at runtime.
 
+### Changed
+* **Package versioning:** Removed the hardcoded version from `composer.json`; Composer and Packagist now infer releases from VCS tags.
+
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
 * **Typed route parameters:** Controller methods are now invoked through reflection so compatible captured values, such as a numeric route parameter passed to an `int`, are coerced correctly.
