@@ -25,6 +25,7 @@ Version 4 is a full breaking release. Existing applications must review the migr
 * **Cache format versioning:** Route caches now carry a format version and are regenerated automatically when an incompatible v3 cache is encountered.
 
 ### Changed
+* **Compact route cache:** Empty execution metadata is omitted, controller and middleware class names are interned in a shared symbol table, scalar converters use integer opcodes, and single HTTP methods are stored without per-route lookup tables. Existing caches are regenerated automatically.
 * **Routing validation:** Route compilation rejects duplicate or ambiguous dynamic routes, invalid method tokens, invalid controller signatures, invalid middleware arguments, encoded separators in `segment` values, and integer values outside the platform range.
 * **Route precedence:** Matching order is deterministic across files and PHP versions. Explicit methods take precedence over `Any`, and static routes take precedence over compatible dynamic routes.
 * **Cached execution:** Middleware construction plans and scalar argument conversions are stored in the route cache, removing controller reflection from cached request handling.

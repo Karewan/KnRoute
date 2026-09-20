@@ -57,6 +57,7 @@ $tests = [
 	['Class middleware runs before the controller', 'GET', '/middleware/class', 200, 'class>controller', MIDDLEWARE_CONTROLLER, 'classMiddleware'],
 	['Class and method middleware run in order', 'GET', '/middleware/both', 200, 'class>method>controller', MIDDLEWARE_CONTROLLER, 'classAndMethodMiddlewares'],
 	['Enum and exportable object middleware arguments survive caching', 'GET', '/middleware/arguments', 200, 'class>admin:managed>controller', MIDDLEWARE_CONTROLLER, 'middlewareArguments'],
+	['Middleware and typed arguments share compact cache metadata', 'GET', '/middleware/typed/42', 200, 'class>controller:42', MIDDLEWARE_CONTROLLER, 'typedMiddleware'],
 	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
 	['Global middlewares run in declaration order', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-order' => 'first,second'], [], 2],
 	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], true],

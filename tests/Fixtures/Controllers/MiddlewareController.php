@@ -31,4 +31,10 @@ class MiddlewareController
 	{
 		echo 'controller';
 	}
+
+	#[Get('/middleware/typed/{id:uint}')]
+	public function typedMiddleware(int $id): void
+	{
+		echo "controller:{$id}";
+	}
 }

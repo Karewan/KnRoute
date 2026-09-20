@@ -41,16 +41,16 @@ PHP);
 
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
 	$initialCache = require $cacheFile;
-	$initialSignature = $initialCache[5] ?? null;
+	$initialSignature = $initialCache[6] ?? null;
 	if (!is_string($initialSignature)) throw new RuntimeException('Controller signature is missing from cache.');
-	if (($initialCache[4] ?? null) !== 7) throw new RuntimeException('Cache format version is missing from cache.');
-	$initialQuickSignature = $initialCache[6] ?? null;
+	if (($initialCache[5] ?? null) !== 1) throw new RuntimeException('Cache format version is missing from cache.');
+	$initialQuickSignature = $initialCache[7] ?? null;
 	if (!is_string($initialQuickSignature)) throw new RuntimeException('Controller quick signature is missing from cache.');
 
-	$initialCache[4] = 0;
+	$initialCache[5] = 2;
 	file_put_contents($cacheFile, '<?php return ' . var_export($initialCache, true) . ';');
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
-	if (((require $cacheFile)[4] ?? null) !== 7) throw new RuntimeException('An incompatible cache format was not regenerated.');
+	if (((require $cacheFile)[5] ?? null) !== 1) throw new RuntimeException('An incompatible cache format was not regenerated.');
 
 	$originalContents = file_get_contents($controllerFile);
 	if ($originalContents === false) throw new RuntimeException('Unable to read controller fixture.');
@@ -59,18 +59,18 @@ PHP);
 	clearstatcache(true, $controllerFile);
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
 	$touchedCache = require $cacheFile;
-	if (($touchedCache[5] ?? null) !== $initialSignature) throw new RuntimeException('Metadata-only change altered the content signature.');
-	if (($touchedCache[6] ?? null) === $initialQuickSignature) throw new RuntimeException('Metadata-only change did not refresh the quick signature.');
+	if (($touchedCache[6] ?? null) !== $initialSignature) throw new RuntimeException('Metadata-only change altered the content signature.');
+	if (($touchedCache[7] ?? null) === $initialQuickSignature) throw new RuntimeException('Metadata-only change did not refresh the quick signature.');
 
 	file_put_contents($controllerFile, "\n", FILE_APPEND);
 	clearstatcache(true, $controllerFile);
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
-	$modifiedSignature = (require $cacheFile)[5] ?? null;
+	$modifiedSignature = (require $cacheFile)[6] ?? null;
 	if ($modifiedSignature === $initialSignature) throw new RuntimeException('Controller edit did not invalidate cache.');
 
 	unlink($controllerFile);
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
-	$deletedSignature = (require $cacheFile)[5] ?? null;
+	$deletedSignature = (require $cacheFile)[6] ?? null;
 	if ($deletedSignature === $modifiedSignature) throw new RuntimeException('Controller deletion did not invalidate cache.');
 
 	$addedControllerFile = $controllersPath . '/AddedController.php';
@@ -85,7 +85,7 @@ class AddedController
 }
 PHP);
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, true);
-	$addedSignature = (require $cacheFile)[5] ?? null;
+	$addedSignature = (require $cacheFile)[6] ?? null;
 	if ($addedSignature === $deletedSignature) throw new RuntimeException('Controller addition did not invalidate cache.');
 	unlink($addedControllerFile);
 

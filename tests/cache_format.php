@@ -32,24 +32,31 @@ try {
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
 	$cache = require $cacheFile;
 
-	assertSame(7, $cache[4] ?? null, 'cache format version');
-	assertTrue(is_string($cache[5] ?? null), 'controller signature');
-	assertTrue(is_string($cache[6] ?? null), 'controller quick signature');
+	$symbols = $cache[4] ?? [];
+	assertSame(1, $cache[5] ?? null, 'cache format version');
+	assertTrue(is_string($cache[6] ?? null), 'controller signature');
+	assertTrue(is_string($cache[7] ?? null), 'controller quick signature');
 
 	$middlewareAction = $cache[0]['/middleware/both'][0][0] ?? null;
-	assertSame(MIDDLEWARE_CONTROLLER, $middlewareAction[0] ?? null, 'cached middleware controller');
+	assertSame(MIDDLEWARE_CONTROLLER, $symbols[$middlewareAction[0] ?? -1] ?? null, 'cached middleware controller');
 	assertSame('classAndMethodMiddlewares', $middlewareAction[1] ?? null, 'cached middleware method');
 	assertSame([
-		['Tests\\Fixtures\\Middlewares\\ClassMiddleware', []],
-		['Tests\\Fixtures\\Middlewares\\MethodMiddleware', []],
+		array_search('Tests\\Fixtures\\Middlewares\\ClassMiddleware', $symbols, true),
+		array_search('Tests\\Fixtures\\Middlewares\\MethodMiddleware', $symbols, true),
 	], $middlewareAction[2] ?? null, 'cached middleware construction plan');
-	assertSame([], $middlewareAction[3] ?? null, 'cached middleware route converters');
+	assertTrue(!array_key_exists(3, $middlewareAction), 'empty middleware route converters are omitted');
 
 	$argumentAction = $cache[0]['/middleware/arguments'][0][0] ?? null;
 	assertSame(Role::Admin, $argumentAction[2][1][1][0] ?? null, 'cached enum middleware argument');
 	$cachedPolicy = $argumentAction[2][1][1][1] ?? null;
 	assertTrue($cachedPolicy instanceof ExportablePolicy, 'cached exportable object middleware argument type');
 	assertSame('managed', $cachedPolicy->name, 'cached exportable object middleware argument state');
+
+	$combinedAction = findAction($cache[2] ?? [], $symbols, MIDDLEWARE_CONTROLLER, 'typedMiddleware');
+	assertSame([
+		[array_search('Tests\\Fixtures\\Middlewares\\ClassMiddleware', $symbols, true)],
+		['id' => 0],
+	], $combinedAction[2] ?? null, 'middlewares and converters share one compact metadata slot');
 
 	try {
 		RoutesDumper::dumpArray([new stdClass()]);
@@ -58,37 +65,37 @@ try {
 		assertTrue(str_contains($e->getMessage(), '__set_state'), 'non-exportable object rejection explains the requirement');
 	}
 
-	$typedAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedInteger');
+	$typedAction = findAction($cache[2] ?? [], $symbols, ROUTING_CONTROLLER, 'typedInteger');
 	assertTrue(is_array($typedAction), 'cached typed route action');
-	assertSame([], $typedAction[2] ?? null, 'cached typed route middlewares');
-	assertSame(['id' => 'int'], $typedAction[3] ?? null, 'cached argument conversion plan');
+	assertSame(['id' => 0], $typedAction[2] ?? null, 'cached argument conversion plan');
+	assertTrue(!array_key_exists(3, $typedAction), 'typed route uses compact metadata slot');
 
-	$scalarAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedScalars');
+	$scalarAction = findAction($cache[2] ?? [], $symbols, ROUTING_CONTROLLER, 'typedScalars');
 	assertTrue(is_array($scalarAction), 'cached scalar route action');
 	assertSame([
-		'integer' => 'int',
-		'decimal' => 'float',
-		'flag' => 'bool',
-	], $scalarAction[3] ?? null, 'cached scalar argument conversion plan');
+		'integer' => 0,
+		'decimal' => 1,
+		'flag' => 2,
+	], $scalarAction[2] ?? null, 'cached scalar argument conversion plan');
 
-	$unionAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedStringUnion');
+	$unionAction = findAction($cache[2] ?? [], $symbols, ROUTING_CONTROLLER, 'typedStringUnion');
 	assertTrue(is_array($unionAction), 'cached string union route action');
-	assertSame([], $unionAction[3] ?? null, 'cached string union keeps URL values as strings');
+	assertTrue(!array_key_exists(2, $unionAction), 'empty string-union metadata is omitted');
 
-	$nullableAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedNullableInteger');
+	$nullableAction = findAction($cache[2] ?? [], $symbols, ROUTING_CONTROLLER, 'typedNullableInteger');
 	assertTrue(is_array($nullableAction), 'cached nullable scalar route action');
-	assertSame(['value' => 'int'], $nullableAction[3] ?? null, 'cached nullable scalar conversion plan');
+	assertSame(['value' => 0], $nullableAction[2] ?? null, 'cached nullable scalar conversion plan');
 
-	$cache[4] = 1;
+	$cache[5] = 2;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
-	assertSame(7, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
+	assertSame(1, (require $cacheFile)[5] ?? null, 'incompatible cache regeneration');
 
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $productionCacheFile, false);
 	$productionCache = require $productionCacheFile;
-	assertSame(7, $productionCache[4] ?? null, 'production cache format version');
-	assertTrue(!array_key_exists(5, $productionCache), 'production cache content signature is omitted');
-	assertTrue(!array_key_exists(6, $productionCache), 'production cache quick signature is omitted');
+	assertSame(1, $productionCache[5] ?? null, 'production cache format version');
+	assertTrue(!array_key_exists(6, $productionCache), 'production cache content signature is omitted');
+	assertTrue(!array_key_exists(7, $productionCache), 'production cache quick signature is omitted');
 
 	echo "PASS  Cache format stores and refreshes execution metadata\n";
 } finally {
@@ -96,13 +103,13 @@ try {
 	if (is_file($productionCacheFile)) unlink($productionCacheFile);
 }
 
-function findAction(array $dynamicRoutes, string $controller, string $method): ?array
+function findAction(array $dynamicRoutes, array $symbols, string $controller, string $method): ?array
 {
 	foreach ($dynamicRoutes as $routes) {
 		foreach ($routes as $compiledRoute) {
 			if (!is_array($compiledRoute)) continue;
 			$action = $compiledRoute[0] ?? null;
-			if (($action[0] ?? null) === $controller && ($action[1] ?? null) === $method) return $action;
+			if (($symbols[$action[0] ?? -1] ?? null) === $controller && ($action[1] ?? null) === $method) return $action;
 		}
 	}
 

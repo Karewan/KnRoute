@@ -24,6 +24,12 @@ class RoutesDumper
 	/** @var Route[] */
 	private array $routes;
 
+	/** @var array<string,int> */
+	private array $symbolIds = [];
+
+	/** @var string[] */
+	private array $symbols = [];
+
 	/**
 	 * Class constructor
 	 * @param Route[] $routes
@@ -87,6 +93,7 @@ class RoutesDumper
 			$methods += array_flip($route->getMethods());
 		}
 		$compiledRoutes[] = [$methods, $acceptsAnyMethod];
+		$compiledRoutes[] = $this->symbols;
 
 		return $compiledRoutes;
 	}
@@ -559,16 +566,46 @@ class RoutesDumper
 	private function compileRoute(Route $route, array|null $vars): array
 	{
 		$action = $route->getAction();
-		$action[] = $route->getMiddlewares();
-		$action[] = $route->getArgumentConverters();
+		$action[0] = $this->getSymbolId($action[0]);
+		$middlewares = array_map(
+			fn(string|array $definition): int|array => is_string($definition)
+				? $this->getSymbolId($definition)
+				: [$this->getSymbolId($definition[0]), $definition[1]],
+			$route->getMiddlewares()
+		);
+		$argumentConverters = array_map(static fn(string $converter): int => match ($converter) {
+			'int' => 0,
+			'float' => 1,
+			'bool' => 2,
+		}, $route->getArgumentConverters());
+		if ($middlewares && $argumentConverters) {
+			$action[] = [$middlewares, $argumentConverters];
+		} elseif ($middlewares) {
+			$action[] = $middlewares;
+		} elseif ($argumentConverters) {
+			$action[] = $argumentConverters;
+		}
 
-		$r = [
-			$action,
-			array_flip($route->getMethods())
-		];
+		$methods = $route->getMethods();
+		$requiredMethods = match (count($methods)) {
+			0 => null,
+			1 => $methods[0],
+			default => array_flip($methods),
+		};
+
+		$r = [$action, $requiredMethods];
 
 		if (!is_null($vars)) $r[] = $vars;
 
 		return $r;
+	}
+
+	private function getSymbolId(string $symbol): int
+	{
+		if (isset($this->symbolIds[$symbol])) return $this->symbolIds[$symbol];
+		$id = count($this->symbols);
+		$this->symbolIds[$symbol] = $id;
+		$this->symbols[] = $symbol;
+		return $id;
 	}
 }

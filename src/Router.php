@@ -27,7 +27,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 7;
+	private const int CACHE_FORMAT_VERSION = 1;
 
 	/**
 	 * Compiled routes
@@ -39,6 +39,9 @@ class Router
 	private array $knownMethods = [];
 
 	private bool $acceptsAnyMethod = false;
+
+	/** @var string[] */
+	private array $cacheSymbols = [];
 
 	/** @var IMiddleware[] */
 	private array $globalMiddlewares = [];
@@ -112,23 +115,40 @@ class Router
 				}
 
 				// The controller, method and execution metadata are all precompiled in the route cache.
-				$this->matchedController = $route[0];
+				$this->matchedController = $this->cacheSymbols[$route[0]];
 				$this->matchedMethod = $route[1];
-				$middlewareDefinitions = $route[2];
-				$argumentConverters = $route[3];
-				unset($route[0], $route[1], $route[2], $route[3]);
+				$metadata = $route[2] ?? [];
+				unset($route[0], $route[1], $route[2]);
+
+				$middlewareDefinitions = $argumentConverters = [];
+				if ($metadata) {
+					if (!array_is_list($metadata)) {
+						$argumentConverters = $metadata;
+					} elseif (isset($metadata[1]) && is_array($metadata[1]) && !array_is_list($metadata[1])) {
+						[$middlewareDefinitions, $argumentConverters] = $metadata;
+					} else {
+						$middlewareDefinitions = $metadata;
+					}
+				}
 
 				$middlewares = [];
-				foreach ($middlewareDefinitions as [$middleware, $arguments]) {
-					$middlewares[] = new $middleware(...$arguments);
+				foreach ($middlewareDefinitions as $definition) {
+					if (is_int($definition)) {
+						$middleware = $this->cacheSymbols[$definition];
+						$middlewares[] = new $middleware;
+					} else {
+						[$middlewareId, $arguments] = $definition;
+						$middleware = $this->cacheSymbols[$middlewareId];
+						$middlewares[] = new $middleware(...$arguments);
+					}
 				}
 
 				foreach ($route as $name => $value) {
 					$value = rawurldecode($value);
 					$route[$name] = match ($argumentConverters[$name] ?? null) {
-						'int' => (int) $value,
-						'float' => (float) $value,
-						'bool' => (bool) $value,
+						0 => (int) $value,
+						1 => (float) $value,
+						2 => (bool) $value,
 						default => $value,
 					};
 				}
@@ -292,7 +312,7 @@ class Router
 				throw new RuntimeException(sprintf('Invalid routes cache file "%s"', $cacheFile));
 			}
 
-			if (($cachedRoutes[4] ?? null) === self::CACHE_FORMAT_VERSION) {
+			if (($cachedRoutes[5] ?? null) === self::CACHE_FORMAT_VERSION) {
 				// Production hot path: load the cache without touching the controllers directory.
 				if (!$scanForModifiedControllers) {
 					$this->setCompiledRoutes($cachedRoutes);
@@ -301,14 +321,14 @@ class Router
 
 				$controllerFiles = $this->findControllerFiles($controllersPath);
 				$controllersQuickSignature = $this->getControllersQuickSignature($controllersPath, $controllerFiles);
-				if (($cachedRoutes[6] ?? null) === $controllersQuickSignature) {
+				if (($cachedRoutes[7] ?? null) === $controllersQuickSignature) {
 					$this->setCompiledRoutes($cachedRoutes);
 					return;
 				}
 
 				$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
-				if (($cachedRoutes[5] ?? null) === $controllersSignature) {
-					$cachedRoutes[6] = $controllersQuickSignature;
+				if (($cachedRoutes[6] ?? null) === $controllersSignature) {
+					$cachedRoutes[7] = $controllersQuickSignature;
 					$this->setCompiledRoutes($cachedRoutes);
 					$this->saveCacheFile($cachedRoutes, $cacheFile);
 					return;
@@ -324,10 +344,10 @@ class Router
 		$routes = $this->findRoutesFromControllers($controllerFiles);
 		$routeDumper = new RoutesDumper($routes);
 		$compiledRoutes = $routeDumper->getCompiledRoutes();
-		$compiledRoutes[4] = self::CACHE_FORMAT_VERSION;
+		$compiledRoutes[5] = self::CACHE_FORMAT_VERSION;
 		if ($scanForModifiedControllers) {
-			$compiledRoutes[5] = $controllersSignature;
-			$compiledRoutes[6] = $controllersQuickSignature;
+			$compiledRoutes[6] = $controllersSignature;
+			$compiledRoutes[7] = $controllersQuickSignature;
 		}
 		$this->setCompiledRoutes($compiledRoutes);
 
@@ -343,6 +363,7 @@ class Router
 	{
 		$this->compiledRoutes = $compiledRoutes;
 		[$this->knownMethods, $this->acceptsAnyMethod] = $compiledRoutes[3] ?? [[], false];
+		$this->cacheSymbols = $compiledRoutes[4] ?? [];
 	}
 
 	/**
@@ -567,7 +588,7 @@ class Router
 	/**
 	 * Compile attribute construction so middleware discovery needs no reflection at runtime.
 	 * @param ReflectionAttribute[] $attributes
-	 * @return array<int,array{string,array}>
+	 * @return array<int,string|array{string,array}>
 	 */
 	private function compileMiddlewares(array $attributes): array
 	{
@@ -576,7 +597,8 @@ class Router
 			// Instantiate during discovery so missing or incompatible constructor
 			// arguments cannot survive into a production route cache.
 			$attribute->newInstance();
-			$middlewares[] = [$attribute->getName(), $attribute->getArguments()];
+			$arguments = $attribute->getArguments();
+			$middlewares[] = $arguments ? [$attribute->getName(), $arguments] : $attribute->getName();
 		}
 
 		return $middlewares;
@@ -897,8 +919,9 @@ class Router
 		$allow = [];
 
 		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
-			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-				$allow += $requiredMethods;
+			if (is_string($requiredMethods) ? $requiredMethods !== $requestMethod : ($requiredMethods && !isset($requiredMethods[$requestMethod]))) {
+				if (is_string($requiredMethods)) $allow[$requiredMethods] = true;
+				else $allow += $requiredMethods;
 				continue;
 			}
 
@@ -916,8 +939,9 @@ class Router
 
 					[$ret, $requiredMethods, $vars] = $r;
 
-					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-						$allow += $requiredMethods;
+					if (is_string($requiredMethods) ? $requiredMethods !== $requestMethod : ($requiredMethods && !isset($requiredMethods[$requestMethod]))) {
+						if (is_string($requiredMethods)) $allow[$requiredMethods] = true;
+						else $allow += $requiredMethods;
 						continue;
 					}
 
@@ -956,12 +980,13 @@ class Router
 		foreach ($this->compiledRoutes[0][$pathinfo] ?? [] as [$ret, $requiredMethods]) {
 			$pathMatched = true;
 
-			if (!$requiredMethods && !$matchAny) {
+			if (is_null($requiredMethods) && !$matchAny) {
 				continue;
 			}
 
-			if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-				$allow += $requiredMethods;
+			if (is_string($requiredMethods) ? $requiredMethods !== $requestMethod : ($requiredMethods && !isset($requiredMethods[$requestMethod]))) {
+				if (is_string($requiredMethods)) $allow[$requiredMethods] = true;
+				else $allow += $requiredMethods;
 				continue;
 			}
 
@@ -980,12 +1005,13 @@ class Router
 					[$ret, $requiredMethods, $vars] = $r;
 					$pathMatched = true;
 
-					if (!$requiredMethods && !$matchAny) {
+					if (is_null($requiredMethods) && !$matchAny) {
 						continue;
 					}
 
-					if ($requiredMethods && !isset($requiredMethods[$requestMethod])) {
-						$allow += $requiredMethods;
+					if (is_string($requiredMethods) ? $requiredMethods !== $requestMethod : ($requiredMethods && !isset($requiredMethods[$requestMethod]))) {
+						if (is_string($requiredMethods)) $allow[$requiredMethods] = true;
+						else $allow += $requiredMethods;
 						continue;
 					}
 
