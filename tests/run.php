@@ -35,7 +35,6 @@ $tests = [
 	['Explicit method takes priority over Any', 'GET', '/priority', 200, 'explicit', ROUTING_CONTROLLER, 'priorityGet'],
 	['Any remains the fallback for other methods', 'PATCH', '/priority', 200, 'fallback', ROUTING_CONTROLLER, 'priorityFallback'],
 	['Application-defined method is routed', 'PURGE', '/custom-method', 200, 'purged', ROUTING_CONTROLLER, 'customMethod'],
-	['Application-defined method metadata is loaded from cache', 'PURGE', '/custom-method', 200, 'purged', ROUTING_CONTROLLER, 'customMethod', [], [], false, 'Controllers', true],
 	['Class middleware runs before the controller', 'GET', '/middleware/class', 200, 'class>controller', MIDDLEWARE_CONTROLLER, 'classMiddleware'],
 	['Class and method middleware run in order', 'GET', '/middleware/both', 200, 'class>method>controller', MIDDLEWARE_CONTROLLER, 'classAndMethodMiddlewares'],
 	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
@@ -77,6 +76,7 @@ $compilationTests = [
 ];
 
 $failures = 0;
+$assertions = 0;
 
 foreach ($tests as $test) {
 	[$name, $method, $uri, $expectedStatus, $expectedOutput, $expectedController, $expectedAction] = $test;
@@ -84,40 +84,54 @@ foreach ($tests as $test) {
 	$unexpectedHeaders = $test[8] ?? [];
 	$globalMiddlewareCount = (int) ($test[9] ?? 0);
 	$fixtureDirectory = $test[10] ?? 'Controllers';
-	$useCache = $test[11] ?? false;
-	$result = runRouteRequest($method, $uri, $globalMiddlewareCount, $fixtureDirectory, $useCache);
-	$errors = [];
+	$results = [];
 
-	assertSame($expectedStatus, $result['status'], 'status', $errors);
-	assertSame($expectedOutput, $result['output'], 'output', $errors);
-	assertSame($expectedController, $result['controller'], 'controller', $errors);
-	assertSame($expectedAction, $result['action'], 'action', $errors);
-	assertSame(0, $result['exitCode'], 'exit code', $errors);
-	foreach ($expectedHeaders as $header => $expectedValue) {
-		assertSame($expectedValue, $result['headers'][$header] ?? null, "{$header} header", $errors);
-	}
-	foreach ($unexpectedHeaders as $header) {
-		if (array_key_exists($header, $result['headers'])) {
-			$errors[] = "{$header} header: expected it to be absent, got " . var_export($result['headers'][$header], true);
+	foreach ([false, true] as $useCache) {
+		$mode = $useCache ? 'with cache' : 'without cache';
+		$result = runRouteRequest($method, $uri, $globalMiddlewareCount, $fixtureDirectory, $useCache);
+		$results[$mode] = $result;
+		$errors = [];
+
+		assertSame($expectedStatus, $result['status'], 'status', $errors);
+		assertSame($expectedOutput, $result['output'], 'output', $errors);
+		assertSame($expectedController, $result['controller'], 'controller', $errors);
+		assertSame($expectedAction, $result['action'], 'action', $errors);
+		assertSame(0, $result['exitCode'], 'exit code', $errors);
+		foreach ($expectedHeaders as $header => $expectedValue) {
+			assertSame($expectedValue, $result['headers'][$header] ?? null, "{$header} header", $errors);
 		}
+		foreach ($unexpectedHeaders as $header) {
+			if (array_key_exists($header, $result['headers'])) {
+				$errors[] = "{$header} header: expected it to be absent, got " . var_export($result['headers'][$header], true);
+			}
+		}
+
+		$assertions++;
+		if ($errors === []) {
+			echo "PASS  {$name} ({$mode})\n";
+			continue;
+		}
+
+		$failures++;
+		echo "FAIL  {$name} ({$mode})\n";
+		foreach ($errors as $error) echo "      {$error}\n";
+		if ($result['diagnostics'] !== '') echo "      stderr: {$result['diagnostics']}\n";
 	}
 
-	if ($errors === []) {
-		echo "PASS  {$name}\n";
-		continue;
-	}
-
-	$failures++;
-	echo "FAIL  {$name}\n";
-	foreach ($errors as $error) {
-		echo "      {$error}\n";
-	}
-	if ($result['diagnostics'] !== '') {
-		echo "      stderr: {$result['diagnostics']}\n";
+	$parityErrors = [];
+	assertSame($results['without cache'], $results['with cache'], 'cached/uncached result', $parityErrors);
+	$assertions++;
+	if ($parityErrors === []) {
+		echo "PASS  {$name} (cache parity)\n";
+	} else {
+		$failures++;
+		echo "FAIL  {$name} (cache parity)\n";
+		foreach ($parityErrors as $error) echo "      {$error}\n";
 	}
 }
 
 foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException]) {
+	$assertions++;
 	$result = runCompilationCheck($fixtureDirectory);
 	if ($result['exitCode'] === 0 && $result['exception'] === $expectedException) {
 		echo "PASS  {$name}\n";
@@ -129,7 +143,7 @@ foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException]) {
 	echo '      expected ' . $expectedException . ', got ' . var_export($result, true) . "\n";
 }
 
-echo sprintf("\n%d tests, %d failures\n", count($tests) + count($compilationTests), $failures);
+echo sprintf("\n%d tests, %d failures\n", $assertions, $failures);
 exit($failures === 0 ? 0 : 1);
 
 /**

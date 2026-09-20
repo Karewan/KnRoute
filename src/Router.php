@@ -14,6 +14,7 @@ use RecursiveIteratorIterator;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionNamedType;
 use LogicException;
 use RuntimeException;
 
@@ -21,7 +22,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 1;
+	private const int CACHE_FORMAT_VERSION = 2;
 
 	/**
 	 * Compiled routes
@@ -96,31 +97,30 @@ class Router
 					$route = $this->findRoute(HttpUtils::getPath(), $requestMethod);
 			}
 
-			// The controller and method
-			$this->findedController = array_shift($route);
-			$this->findedMethod =  array_shift($route);
+			// The controller, method and execution metadata are all precompiled in the route cache.
+			$this->findedController = $route[0];
+			$this->findedMethod = $route[1];
+			$middlewares = $route[2];
+			$argumentConverters = $route[3];
+			unset($route[0], $route[1], $route[2], $route[3]);
 
-			// Reflect the controller class
-			$controllerClass = new ReflectionClass($this->findedController);
-
-			// Handle controller middlewares
-			foreach ($controllerClass->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $controllerAttribute) {
-				$controllerAttribute->newInstance()->handle();
+			foreach ($middlewares as [$middleware, $arguments]) {
+				(new $middleware(...$arguments))->handle();
 			}
 
-			// Instantiate the controller
 			$controllerInstance = new $this->findedController;
 
-			// Reflect the controller method
-			$controllerMethod = $controllerClass->getMethod($this->findedMethod);
-
-			// Handle method middlewares
-			foreach ($controllerMethod->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
-				$methodAttribute->newInstance()->handle();
+			foreach ($route as $name => $value) {
+				$value = rawurldecode($value);
+				$route[$name] = match ($argumentConverters[$name] ?? null) {
+					'int' => (int) $value,
+					'float' => (float) $value,
+					'bool' => (bool) $value,
+					default => $value,
+				};
 			}
 
-			// Call the method
-			$controllerMethod->invokeArgs($controllerInstance, array_map(fn(string $p): string => rawurldecode($p), $route));
+			$controllerInstance->{$this->findedMethod}(...$route);
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
 			http_response_code(405);
@@ -349,6 +349,8 @@ class Router
 				continue;
 			}
 
+			$controllerMiddlewares = $this->compileMiddlewares($controller->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF));
+
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
 				if ($method->getDeclaringClass()->getName() !== $controller->getName()) {
 					continue;
@@ -358,12 +360,44 @@ class Router
 					$route = $attribute->newInstance();
 					$this->validateRouteParameters($route, $method);
 					$route->setAction([$controller->getName(), $method->getName()]);
+					$route->setExecutionMetadata(
+						array_merge($controllerMiddlewares, $this->compileMiddlewares($method->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF))),
+						$this->compileArgumentConverters($method)
+					);
 					$routes[] = $route;
 				}
 			}
 		}
 
 		return $routes;
+	}
+
+	/**
+	 * Compile attribute construction so middleware discovery needs no reflection at runtime.
+	 * @param ReflectionAttribute[] $attributes
+	 * @return array<int,array{string,array}>
+	 */
+	private function compileMiddlewares(array $attributes): array
+	{
+		return array_map(
+			static fn(ReflectionAttribute $attribute): array => [$attribute->getName(), $attribute->getArguments()],
+			$attributes
+		);
+	}
+
+	/** @return array<string,string> */
+	private function compileArgumentConverters(ReflectionMethod $method): array
+	{
+		$converters = [];
+
+		foreach ($method->getParameters() as $parameter) {
+			$type = $parameter->getType();
+			if ($type instanceof ReflectionNamedType && $type->isBuiltin() && in_array($type->getName(), ['int', 'float', 'bool'], true)) {
+				$converters[$parameter->getName()] = $type->getName();
+			}
+		}
+
+		return $converters;
 	}
 
 	/**

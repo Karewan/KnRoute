@@ -338,8 +338,12 @@ class RoutesDumper
 	 */
 	private function compileRoute(Route $route, array|null $vars): array
 	{
+		$action = $route->getAction();
+		$action[] = $route->getMiddlewares();
+		$action[] = $route->getArgumentConverters();
+
 		$r = [
-			$route->getAction(),
+			$action,
 			array_flip($route->getMethods())
 		];
 

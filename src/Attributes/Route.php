@@ -15,6 +15,12 @@ class Route
 	/** @var string[] */
 	private array $action = [];
 
+	/** @var array<int,array{string,array}> */
+	private array $middlewares = [];
+
+	/** @var array<string,string> */
+	private array $argumentConverters = [];
+
 	/** @var string[] */
 	private array $varsRegex = [];
 
@@ -92,6 +98,28 @@ class Route
 	public function getAction(): array
 	{
 		return $this->action;
+	}
+
+	/**
+	 * @param array<int,array{string,array}> $middlewares
+	 * @param array<string,string> $argumentConverters
+	 */
+	public function setExecutionMetadata(array $middlewares, array $argumentConverters): void
+	{
+		$this->middlewares = $middlewares;
+		$this->argumentConverters = $argumentConverters;
+	}
+
+	/** @return array<int,array{string,array}> */
+	public function getMiddlewares(): array
+	{
+		return $this->middlewares;
+	}
+
+	/** @return array<string,string> */
+	public function getArgumentConverters(): array
+	{
+		return $this->argumentConverters;
 	}
 
 	/**

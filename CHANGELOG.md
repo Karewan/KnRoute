@@ -5,10 +5,12 @@ v4.0.0 (unreleased)
 * **Global middleware:** Added `Router::addGlobalMiddleware()` for logic that must run before routes and automatic responses.
 * **Routing tests:** Added a dependency-free functional test suite covering route results, parameters, HTTP methods, and error statuses.
 * **Cache format versioning:** Added an integer format version to route caches so incompatible or legacy caches are automatically regenerated at runtime.
+* **Cache format tests:** Added explicit coverage for cached execution metadata, middleware plans, argument conversions, legacy cache regeneration, and cached/uncached parity across every routing scenario.
 
 ### Changed
 * **Package versioning:** Removed the hardcoded version from `composer.json`; Composer and Packagist now infer releases from VCS tags.
 * **Route dumper:** Removed unused recursion state and obsolete host-matching code from `RoutesDumper`.
+* **Cached route execution:** Controller and method middleware metadata and scalar argument conversions are now precompiled into the route cache, removing reflection and `invokeArgs()` from the production request path.
 
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
