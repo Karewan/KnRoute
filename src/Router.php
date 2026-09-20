@@ -59,7 +59,9 @@ class Router
 		header('Content-Type:');
 
 		// Set a constant to check if current request is XHR
-		define('IS_XHR', HttpUtils::getHeader('X-Requested-With') == 'XMLHttpRequest');
+		if (!defined('IS_XHR')) {
+			define('IS_XHR', HttpUtils::getHeader('X-Requested-With') == 'XMLHttpRequest');
+		}
 		$requestMethod = $_SERVER['REQUEST_METHOD'];
 
 		try {
