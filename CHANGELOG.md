@@ -22,6 +22,7 @@ v4.0.0 (unreleased)
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
+* **Middleware cache arguments:** Enum cases and objects exportable through `__set_state()` are now preserved in route caches; unsupported values are rejected during cache generation instead of silently becoming `null`.
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
 * **Typed route parameters:** Controller methods are now invoked through reflection so compatible captured values, such as a numeric route parameter passed to an `int`, are coerced correctly.
 * **URL-decoded route parameters:** Route parameters now use `rawurldecode()` so literal plus signs in URL paths are preserved instead of being converted to spaces.

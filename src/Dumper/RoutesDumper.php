@@ -8,8 +8,11 @@ use ErrorException;
 use Exception;
 use Karewan\KnRoute\Attributes\Route;
 use LogicException;
+use ReflectionMethod;
 use RuntimeException;
+use SplObjectStorage;
 use stdClass;
+use UnitEnum;
 
 class RoutesDumper
 {
@@ -126,6 +129,7 @@ class RoutesDumper
 
 		foreach ($array as $key => $value) {
 			switch (gettype($value)) {
+				case 'NULL':
 				case 'boolean':
 				case 'integer':
 				case 'double':
@@ -137,15 +141,70 @@ class RoutesDumper
 					$exported = self::dumpArray($value);
 					break;
 
-				default:
-					$exported = 'null';
+				case 'object':
+					self::assertExportableObject($value, new SplObjectStorage());
+					$exported = var_export($value, true);
 					break;
+
+				default:
+					throw new LogicException(sprintf('Cannot export cache value of type %s', get_debug_type($value)));
 			}
 
 			$result[] = $isList ? $exported : var_export($key, true) . '=>' . $exported;
 		}
 
 		return '[' . implode(',', $result) . ']';
+	}
+
+	/**
+	 * Validate that var_export() can reconstruct an object when the cache is loaded.
+	 * Enums are emitted as case references. Other objects must implement the
+	 * conventional public static __set_state(array $properties) factory.
+	 */
+	private static function assertExportableObject(object $object, SplObjectStorage $ancestors): void
+	{
+		if ($object instanceof UnitEnum) return;
+
+		$class = $object::class;
+		if (!method_exists($object, '__set_state')) {
+			throw new LogicException(sprintf(
+				'Cannot export cache value of type %s: the class must implement public static __set_state()',
+				$class
+			));
+		}
+
+		$setState = new ReflectionMethod($class, '__set_state');
+		if (!$setState->isPublic() || !$setState->isStatic()) {
+			throw new LogicException(sprintf(
+				'Cannot export cache value of type %s: __set_state() must be public and static',
+				$class
+			));
+		}
+
+		if ($ancestors->offsetExists($object)) {
+			throw new LogicException(sprintf('Cannot export cyclic cache value of type %s', $class));
+		}
+
+		$ancestors->offsetSet($object);
+		foreach ((array) $object as $value) {
+			self::assertExportableValue($value, $ancestors);
+		}
+		$ancestors->offsetUnset($object);
+	}
+
+	private static function assertExportableValue(mixed $value, SplObjectStorage $ancestors): void
+	{
+		if (is_array($value)) {
+			foreach ($value as $nestedValue) self::assertExportableValue($nestedValue, $ancestors);
+			return;
+		}
+		if (is_object($value)) {
+			self::assertExportableObject($value, $ancestors);
+			return;
+		}
+		if (is_resource($value)) {
+			throw new LogicException(sprintf('Cannot export cache value of type %s', get_debug_type($value)));
+		}
 	}
 
 	/**

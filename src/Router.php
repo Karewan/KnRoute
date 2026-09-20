@@ -22,7 +22,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 3;
+	private const int CACHE_FORMAT_VERSION = 4;
 
 	/**
 	 * Compiled routes

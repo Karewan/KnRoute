@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Karewan\KnRoute\Router;
+use Karewan\KnRoute\Dumper\RoutesDumper;
+use Tests\Fixtures\Values\ExportablePolicy;
+use Tests\Fixtures\Values\Role;
 
 const PROJECT_ROOT = __DIR__ . '/..';
 const ROUTING_CONTROLLER = 'Tests\\Fixtures\\Controllers\\RoutingController';
@@ -29,7 +32,7 @@ try {
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
 	$cache = require $cacheFile;
 
-	assertSame(3, $cache[4] ?? null, 'cache format version');
+	assertSame(4, $cache[4] ?? null, 'cache format version');
 	assertTrue(is_string($cache[5] ?? null), 'controller signature');
 	assertTrue(is_string($cache[6] ?? null), 'controller quick signature');
 
@@ -42,6 +45,19 @@ try {
 	], $middlewareAction[2] ?? null, 'cached middleware construction plan');
 	assertSame([], $middlewareAction[3] ?? null, 'cached middleware route converters');
 
+	$argumentAction = $cache[0]['/middleware/arguments'][0][0] ?? null;
+	assertSame(Role::Admin, $argumentAction[2][1][1][0] ?? null, 'cached enum middleware argument');
+	$cachedPolicy = $argumentAction[2][1][1][1] ?? null;
+	assertTrue($cachedPolicy instanceof ExportablePolicy, 'cached exportable object middleware argument type');
+	assertSame('managed', $cachedPolicy->name, 'cached exportable object middleware argument state');
+
+	try {
+		RoutesDumper::dumpArray([new stdClass()]);
+		throw new RuntimeException('non-exportable object cache value was accepted');
+	} catch (LogicException $e) {
+		assertTrue(str_contains($e->getMessage(), '__set_state'), 'non-exportable object rejection explains the requirement');
+	}
+
 	$typedAction = findAction($cache[2] ?? [], ROUTING_CONTROLLER, 'typedInteger');
 	assertTrue(is_array($typedAction), 'cached typed route action');
 	assertSame([], $typedAction[2] ?? null, 'cached typed route middlewares');
@@ -50,11 +66,11 @@ try {
 	$cache[4] = 1;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
-	assertSame(3, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
+	assertSame(4, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
 
 	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $productionCacheFile, false);
 	$productionCache = require $productionCacheFile;
-	assertSame(3, $productionCache[4] ?? null, 'production cache format version');
+	assertSame(4, $productionCache[4] ?? null, 'production cache format version');
 	assertTrue(!array_key_exists(5, $productionCache), 'production cache content signature is omitted');
 	assertTrue(!array_key_exists(6, $productionCache), 'production cache quick signature is omitted');
 

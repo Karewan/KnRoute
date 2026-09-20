@@ -299,6 +299,8 @@ class TestController
 }
 ```
 
+Middleware arguments are preserved in the route cache. Scalars, `null`, arrays, and enum cases are supported directly. Object arguments must implement a public static `__set_state()` method so PHP can reconstruct them when loading the cache. Cache generation throws a `LogicException` for unsupported values instead of silently replacing them with `null`.
+
 ### Use global middlewares
 
 Global middlewares execute in registration order, before route matching and automatic responses such as `OPTIONS`. The complete request order is: global middlewares, route matching, class middlewares, controller construction, method middlewares, then controller action.
