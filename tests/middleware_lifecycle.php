@@ -37,6 +37,22 @@ namespace Tests {
 			if ($this->crashAfter) throw new RuntimeException("after:{$this->name}");
 		}
 	}
+
+	class LifecycleController
+	{
+		public static bool $fail = false;
+
+		public function action(): void
+		{
+			MiddlewareLifecycle::$events[] = 'action';
+			if (self::$fail) throw new \Karewan\KnRoute\Exceptions\HttpException(409);
+		}
+
+		public function __destruct()
+		{
+			MiddlewareLifecycle::$events[] = 'destruct';
+		}
+	}
 }
 
 namespace {
@@ -66,8 +82,40 @@ namespace {
 	assertLifecycle(false, false, ['before:A', 'before:B', 'action', 'after:B', 'after:A'], 'action crash');
 	assertLifecycle(false, true, ['before:A', 'before:B', 'action', 'after:B'], 'after:B');
 	assertLifecycle(true, false, ['before:A', 'before:B'], 'before:B');
+	foreach ([false, true] as $global) {
+		foreach ([false, true] as $local) {
+			foreach ([false, true] as $fail) assertControllerLifetime($global, $local, $fail);
+		}
+	}
 
 	echo "PASS  Middleware hooks stop immediately while action failures run after hooks\n";
+
+	function assertControllerLifetime(bool $global, bool $local, bool $fail): void
+	{
+		MiddlewareLifecycle::$events = [];
+		\Tests\LifecycleController::$fail = $fail;
+		$_SERVER['REQUEST_URI'] = '/lifetime';
+		$route = new \Karewan\KnRoute\Attributes\Route(['GET'], '/lifetime');
+		$route->setAction([\Tests\LifecycleController::class, 'action']);
+		if ($local) $route->setExecutionMetadata([[LifecycleMiddleware::class, ['local']]], []);
+		$compiled = (new \Karewan\KnRoute\Dumper\RoutesDumper([$route]))->getCompiledRoutes();
+		$router = new Router();
+		(new ReflectionMethod(Router::class, 'setCompiledRoutes'))->invoke($router, $compiled);
+		if ($global) $router->addGlobalMiddleware(new LifecycleMiddleware('global'));
+		$router->setErrorHandler(409, static function (): void {
+			MiddlewareLifecycle::$events[] = 'error';
+		});
+		$router->run();
+		$expected = $global ? ['before:global'] : [];
+		if ($local) $expected[] = 'before:local';
+		array_push($expected, 'action', 'destruct');
+		if ($local) $expected[] = 'after:local';
+		if ($fail) $expected[] = 'error';
+		if ($global) $expected[] = 'after:global';
+		if (MiddlewareLifecycle::$events !== $expected) {
+			throw new RuntimeException('Unexpected controller lifetime: ' . implode(', ', MiddlewareLifecycle::$events));
+		}
+	}
 
 	/** @param string[] $expectedEvents */
 	function assertLifecycle(bool $crashBefore, bool $crashAfter, array $expectedEvents, string $expectedException): void

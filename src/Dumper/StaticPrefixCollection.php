@@ -149,6 +149,9 @@ class StaticPrefixCollection
 						break;
 					}
 					$subPattern = substr($prefix, $i, $j - $i);
+					// Integer subroutines have variable length and their definitions live in
+					// the combined regexp, so they cannot be tested in an isolated lookbehind.
+					if ($prefix !== $anotherPrefix && str_contains($subPattern, '(?&')) break;
 					if ($prefix !== $anotherPrefix && !preg_match('/^\(\[[^\]]++\]\+\+\)$/', $subPattern) && !preg_match('{(?<!' . $subPattern . ')}', '')) {
 						// sub-patterns of variable length are not considered as common prefixes because their greediness would break in-order matching
 						break;

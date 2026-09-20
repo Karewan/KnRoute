@@ -92,12 +92,7 @@ class RoutesCompiler
 				));
 			}
 			$regexp = match ($type) {
-				'uint' => self::unsignedIntegerRegex((string) PHP_INT_MAX),
-				'int' => sprintf(
-					'(?:0|%s|-(?:%s))',
-					self::positiveIntegerRegex((string) PHP_INT_MAX),
-					self::positiveIntegerRegex(substr((string) PHP_INT_MIN, 1))
-				),
+				'uint', 'int' => self::getIntegerRegexes()[$type],
 				default => self::VAR_REGEX[$type] ?? null,
 			};
 			if ($regexp === null) {
@@ -117,9 +112,21 @@ class RoutesCompiler
 		return [$normalizedPattern, $varsRegex];
 	}
 
-	private static function unsignedIntegerRegex(string $maximum): string
+	/**
+	 * Shared built-in expressions for standalone routes and the combined matcher.
+	 * @internal
+	 * @return array{uint:string,int:string}
+	 */
+	public static function getIntegerRegexes(): array
 	{
-		return '(?:0|' . self::positiveIntegerRegex($maximum) . ')';
+		static $regexes = null;
+		if ($regexes !== null) return $regexes;
+
+		$positive = self::positiveIntegerRegex((string) PHP_INT_MAX);
+		return $regexes = [
+			'uint' => '(?:0|' . $positive . ')',
+			'int' => '(?:0|' . $positive . '|-(?:' . self::positiveIntegerRegex(substr((string) PHP_INT_MIN, 1)) . '))',
+		];
 	}
 
 	/** Build a decimal regexp for the inclusive range 1..$maximum. */
@@ -200,10 +207,9 @@ class RoutesCompiler
 					// directly adjacent, e.g. '/{x}{y}'.
 					$regexp .= '+';
 				}
-			} else {
-				$regexp = self::transformCapturingGroupsToNonCapturings($regexp);
 			}
 
+			// Built-in type expressions already contain only non-capturing groups.
 			$tokens[] = ['variable', $isSeparator ? $precedingChar : '', $regexp, $varName];
 			$variables[] = $varName;
 		}
@@ -273,31 +279,5 @@ class RoutesCompiler
 			// Variable tokens
 			return sprintf('%s(?P<%s>%s)', preg_quote($token[1]), $token[3], $token[2]);
 		}
-	}
-
-	/**
-	 * Transform capturing groups to non capturings
-	 * @param string $regexp
-	 * @return string
-	 */
-	private static function transformCapturingGroupsToNonCapturings(string $regexp): string
-	{
-		for ($i = 0; $i < strlen($regexp); ++$i) {
-			if ('\\' === $regexp[$i]) {
-				++$i;
-				continue;
-			}
-			if ('(' !== $regexp[$i] || !isset($regexp[$i + 2])) {
-				continue;
-			}
-			if ('*' === $regexp[++$i] || '?' === $regexp[$i]) {
-				++$i;
-				continue;
-			}
-			$regexp = substr_replace($regexp, '?:', $i, 0);
-			++$i;
-		}
-
-		return $regexp;
 	}
 }

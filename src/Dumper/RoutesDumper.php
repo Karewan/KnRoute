@@ -7,6 +7,7 @@ namespace Karewan\KnRoute\Dumper;
 use ErrorException;
 use Exception;
 use Karewan\KnRoute\Attributes\Route;
+use Karewan\KnRoute\Routes\RoutesCompiler;
 use LogicException;
 use ReflectionMethod;
 use RuntimeException;
@@ -39,22 +40,22 @@ class RoutesDumper
 	{
 		$this->routes = $routes;
 		$this->validateRoutes();
+		if (count($this->routes) < 2) return;
 
 		// Keep route precedence deterministic across files and PHP versions. Explicit methods
 		// take precedence over Any routes, then static routes over dynamic routes.
-		usort($this->routes, static fn(Route $a, Route $b): int => [
-			(int) empty($a->getMethods()),
-			(int) (bool) $a->compile()->getPathVariables(),
-			$a->getPath(),
-			implode("\0", $a->getMethods()),
-			implode("\0", $a->getAction())
-		] <=> [
-			(int) empty($b->getMethods()),
-			(int) (bool) $b->compile()->getPathVariables(),
-			$b->getPath(),
-			implode("\0", $b->getMethods()),
-			implode("\0", $b->getAction())
-		]);
+		$sortableRoutes = [];
+		foreach ($this->routes as $route) {
+			$sortableRoutes[] = [[
+				(int) empty($route->getMethods()),
+				(int) (bool) $route->compile()->getPathVariables(),
+				$route->getPath(),
+				implode("\0", $route->getMethods()),
+				implode("\0", $route->getAction()),
+			], $route];
+		}
+		usort($sortableRoutes, static fn(array $a, array $b): int => $a[0] <=> $b[0]);
+		$this->routes = array_column($sortableRoutes, 1);
 	}
 
 	/**
@@ -105,16 +106,12 @@ class RoutesDumper
 	private function validateRoutes(): void
 	{
 		$seen = [];
-		$validated = [];
-		$validatedByFirstStaticSegment = [];
-		$unindexedRoutes = [];
+		$dynamicRoutes = [];
 
 		foreach ($this->routes as $route) {
-			$regex = preg_replace('/\?P<[^>]+>/', '?:', $route->compile()->getRegex());
-			$signature = $regex ?? $route->compile()->getRegex();
-			$methods = $route->getMethods() ?: ['*'];
-
-			foreach ($methods as $method) {
+			$compiled = $route->compile();
+			$signature = preg_replace('/\?P<[^>]+>/', '?:', $compiled->getRegex());
+			foreach ($route->getMethods() ?: ['*'] as $method) {
 				if (isset($seen[$signature][$method])) {
 					throw new LogicException(sprintf(
 						'Conflicting %s routes "%s" and "%s"',
@@ -126,12 +123,22 @@ class RoutesDumper
 				$seen[$signature][$method] = $route;
 			}
 
-			$indexKey = self::firstStaticSegment($route);
-			$candidates = $indexKey === null
-				? $validated
-				: array_merge($validatedByFirstStaticSegment[$indexKey] ?? [], $unindexedRoutes);
+			// Static routes may specialize dynamic routes; only their duplicates conflict.
+			if ($compiled->getPathVariables()) {
+				$dynamicRoutes[] = [$compiled->getStaticPrefix(), $route];
+			}
+		}
 
-			foreach ($candidates as $otherRoute) {
+		// Lexicographic order keeps each literal prefix's descendants together.
+		// Only equal or ancestor prefixes can intersect the next route's path.
+		if (count($dynamicRoutes) < 2) return;
+		usort($dynamicRoutes, static fn(array $a, array $b): int => strcmp($a[0], $b[0]));
+		$activeRoutes = [];
+		foreach ($dynamicRoutes as [$prefix, $route]) {
+			while ($activeRoutes && !str_starts_with($prefix, $activeRoutes[array_key_last($activeRoutes)][0])) {
+				array_pop($activeRoutes);
+			}
+			foreach ($activeRoutes as [, $otherRoute]) {
 				$commonMethods = self::commonMethods($route, $otherRoute);
 				if ($commonMethods === null || !self::haveOverlappingPaths($route, $otherRoute)) continue;
 
@@ -142,22 +149,8 @@ class RoutesDumper
 					join('->', $route->getAction())
 				));
 			}
-			$validated[] = $route;
-			if ($indexKey === null) {
-				$unindexedRoutes[] = $route;
-			} else {
-				$validatedByFirstStaticSegment[$indexKey][] = $route;
-			}
+			$activeRoutes[] = [$prefix, $route];
 		}
-	}
-
-	/**
-	 * Index routes whose first complete path segment is static. Routes beginning with
-	 * a variable (or mixing a variable into that segment) remain wildcard candidates.
-	 */
-	private static function firstStaticSegment(Route $route): ?string
-	{
-		return preg_match('#^/([^/{]+)/#D', $route->getPath(), $matches) === 1 ? $matches[1] : null;
 	}
 
 	/** @return null|string[] null means that the method domains are disjoint. */
@@ -172,9 +165,6 @@ class RoutesDumper
 
 	private static function haveOverlappingPaths(Route $first, Route $second): bool
 	{
-		// Static routes have deterministic precedence and are intentionally allowed to
-		// specialize a dynamic route.
-		if (!$first->compile()->getPathVariables() || !$second->compile()->getPathVariables()) return false;
 		if (self::haveOverlappingVariableDomains($first, $second)) return true;
 
 		$firstRegex = $first->compile()->getRegex();
@@ -444,6 +434,8 @@ class RoutesDumper
 		if (!$collection) return [[], []];
 
 		$regexpList = [];
+		$integerPatterns = RoutesCompiler::getIntegerRegexes();
+		$integerCalls = array_map(static fn(string $type): string => '(?&_knroute_' . $type . ')', array_keys($integerPatterns));
 
 		$state = (object) [
 			'regex' => [],
@@ -488,13 +480,23 @@ class RoutesDumper
 
 				$state->vars = [];
 				$regex = preg_replace_callback('#\?P<([^>]++)>#', $state->getVars, $rx[1]);
+				// Factor bounded integer expressions without changing the surrounding captures.
+				$regex = str_replace(array_values($integerPatterns), $integerCalls, $regex);
 
 				$tree->addRoute($regex, [$regex, $state->vars, $route]);
 			}
 
 			$this->compileStaticPrefixCollection($tree, $state, 0);
 
-			$rx = ")/?$}{$modifiers}";
+			$definitions = '';
+			foreach ($integerPatterns as $type => $pattern) {
+				$name = '_knroute_' . $type;
+				if (str_contains($state->regex, '(?&' . $name . ')')) {
+					$definitions .= '(?<' . $name . '>' . $pattern . ')';
+				}
+			}
+			// DEFINE goes after all route captures, preserving their numeric positions.
+			$rx = ')' . ($definitions === '' ? '' : '(?(DEFINE)' . $definitions . ')') . "/?$}{$modifiers}";
 			$state->regex .= $rx;
 			$state->markTail = 0;
 
