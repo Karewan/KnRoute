@@ -1,4 +1,4 @@
-v4.0.0 (unreleased)
+v4.0.0 (2026-09-20)
 ----------------------------
 Version 4 is a full breaking release. Existing applications must review the migration notes below before upgrading from v3.
 
