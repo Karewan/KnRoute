@@ -18,6 +18,7 @@ v4.0.0 (unreleased)
 * **XML responses:** `HttpUtils::outputXml()` now uses the `application/xml` media type.
 * **XHR detection:** Removed the global `IS_XHR` constant in favor of `HttpUtils::isXmlHttpRequest()`.
 * **Trusted proxies:** Common forwarding headers are now recognized automatically, and forwarding chains are resolved securely from right to left.
+* **Optional server values:** `HttpUtils` now handles missing request metadata safely; content length and port accessors return `null` for missing or invalid values.
 * **HTTP response defaults:** `Router::run()` no longer emits an empty `Content-Type` header.
 * **Any and OPTIONS semantics:** `Any` now consistently handles every method, including `HEAD` and `OPTIONS`; `OPTIONS *` advertises only methods explicitly declared by the application.
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.

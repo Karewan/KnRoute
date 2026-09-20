@@ -45,6 +45,11 @@ namespace {
 	assertSame(0, HttpUtils::getContentLength(), 'zero content length');
 	$_SERVER['CONTENT_LENGTH'] = '123';
 	assertSame(123, HttpUtils::getContentLength(), 'content length as integer');
+	$_SERVER['CONTENT_LENGTH'] = '-1';
+	assertSame(null, HttpUtils::getContentLength(), 'negative content length');
+	$_SERVER['CONTENT_LENGTH'] = 'invalid';
+	assertSame(null, HttpUtils::getContentLength(), 'invalid content length');
+	unset($_SERVER['CONTENT_LENGTH']);
 
 	$_SERVER['HTTP_HOST'] = 'second.example';
 	$_SERVER['REQUEST_URI'] = '/second/';
@@ -56,6 +61,12 @@ namespace {
 	assertSame('second', HttpUtils::getHeader('X-Custom-Header'), 'uncached header');
 	assertSame('second', HttpUtils::getHeaders()['X-Custom-Header'] ?? null, 'normalized headers');
 	assertSame('192.0.2.11', HttpUtils::getIp(), 'uncached remote address');
+	assertSame(null, HttpUtils::getServerPort(), 'missing server port');
+	assertSame(null, HttpUtils::getClientPort(), 'missing client port');
+	$_SERVER['SERVER_PORT'] = '443';
+	$_SERVER['REMOTE_PORT'] = '49152';
+	assertSame(443, HttpUtils::getServerPort(), 'server port');
+	assertSame(49152, HttpUtils::getClientPort(), 'client port');
 
 	HttpUtils::setTrustedProxies(['192.0.2.11']);
 	$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7, 192.0.2.11';
@@ -92,6 +103,18 @@ namespace {
 		throw new RuntimeException('Invalid trusted proxy was accepted.');
 	} catch (\InvalidArgumentException) {
 	}
+
+	$_SERVER = [];
+	assertSame('/', HttpUtils::getPath(), 'missing request URI');
+	assertSame('', HttpUtils::getMethod(), 'missing request method');
+	assertSame('', HttpUtils::getProtocol(), 'missing server protocol');
+	assertSame('', HttpUtils::getQueryString(), 'missing query string');
+	assertSame(null, HttpUtils::getServerPort(), 'missing server port in empty environment');
+	assertSame(null, HttpUtils::getClientPort(), 'missing client port in empty environment');
+	$_SERVER['SERVER_PORT'] = '70000';
+	$_SERVER['REMOTE_PORT'] = 'invalid';
+	assertSame(null, HttpUtils::getServerPort(), 'out-of-range server port');
+	assertSame(null, HttpUtils::getClientPort(), 'invalid client port');
 
 	echo "PASS  HttpUtils is stateless and normalizes headers and trusted proxies\n";
 

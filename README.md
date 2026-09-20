@@ -353,8 +353,8 @@ function getReferer(): string;
 function isXmlHttpRequest(): bool;
 function setTrustedProxies(array $proxies): void;
 function getIp(): string;
-function getServerPort(): int;
-function getClientPort(): int;
+function getServerPort(): ?int;
+function getClientPort(): ?int;
 function getBody(): string;
 function getJsonBody(bool $associative = false, int $depth = 512, int $flags = JSON_BIGINT_AS_STRING): mixed;
 function outputJson(mixed $data, int $httpCode = 200): never;
@@ -369,6 +369,10 @@ function dieStatus(int $code): never;
 `HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()` and `setHeaders()` are normalized to standard title case.
 
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
+
+Missing request URI, method, protocol, or query-string server values produce safe empty defaults. Port accessors return `null` when their server value is absent, invalid, or outside the `1..65535` range.
+
+`getContentLength()` returns a non-negative integer, or `null` when the header is absent or invalid.
 
 No proxy address is trusted by default. If the application runs behind trusted reverse proxies, configure their individual IPv4/IPv6 addresses:
 

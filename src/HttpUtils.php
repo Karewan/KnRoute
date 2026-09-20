@@ -38,7 +38,7 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
+		$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
 		return $path === '*' ? '*' : '/' . trim($path, '/');
 	}
 
@@ -48,7 +48,7 @@ class HttpUtils
 	 */
 	public static function getMethod(): string
 	{
-		return $_SERVER['REQUEST_METHOD'];
+		return $_SERVER['REQUEST_METHOD'] ?? '';
 	}
 
 	/**
@@ -57,7 +57,7 @@ class HttpUtils
 	 */
 	public static function getProtocol(): string
 	{
-		return $_SERVER['SERVER_PROTOCOL'];
+		return $_SERVER['SERVER_PROTOCOL'] ?? '';
 	}
 
 	/**
@@ -139,7 +139,10 @@ class HttpUtils
 	public static function getContentLength(): ?int
 	{
 		$contentLength = self::getHeader('Content-Length');
-		return $contentLength === '' ? null : (int) $contentLength;
+		if ($contentLength === '') return null;
+
+		$contentLength = filter_var($contentLength, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+		return $contentLength === false ? null : $contentLength;
 	}
 
 	/**
@@ -214,20 +217,20 @@ class HttpUtils
 
 	/**
 	 * Get server listen port
-	 * @return int
+	 * @return null|int
 	 */
-	public static function getServerPort(): int
+	public static function getServerPort(): ?int
 	{
-		return intval($_SERVER['SERVER_PORT']);
+		return self::normalizePort($_SERVER['SERVER_PORT'] ?? null);
 	}
 
 	/**
 	 * Get client remote port
-	 * @return int
+	 * @return null|int
 	 */
-	public static function getClientPort(): int
+	public static function getClientPort(): ?int
 	{
-		return intval($_SERVER['REMOTE_PORT']);
+		return self::normalizePort($_SERVER['REMOTE_PORT'] ?? null);
 	}
 
 	/**
@@ -432,6 +435,12 @@ class HttpUtils
 		}
 
 		return filter_var($address, FILTER_VALIDATE_IP) === false ? null : $address;
+	}
+
+	private static function normalizePort(mixed $port): ?int
+	{
+		$port = filter_var($port, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+		return $port === false ? null : $port;
 	}
 
 	private static function isTrustedProxy(string $address): bool
