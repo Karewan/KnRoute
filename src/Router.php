@@ -66,13 +66,16 @@ class Router
 			// Instantiate the controller
 			$controllerInstance = new $this->findedController;
 
+			// Reflect the controller method
+			$controllerMethod = $controllerClass->getMethod($this->findedMethod);
+
 			// Handle method middlewares
-			foreach ($controllerClass->getMethod($this->findedMethod)->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
+			foreach ($controllerMethod->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF) as $methodAttribute) {
 				$methodAttribute->newInstance()->handle();
 			}
 
 			// Call the method
-			call_user_func_array([$controllerInstance, $this->findedMethod], array_map(fn(string $p): string => urldecode($p), $route));
+			$controllerMethod->invokeArgs($controllerInstance, array_map(fn(string $p): string => urldecode($p), $route));
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $e->getAllowedMethods()));
 			$method = HttpUtils::getMethod();
