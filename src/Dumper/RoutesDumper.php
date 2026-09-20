@@ -118,7 +118,7 @@ class RoutesDumper
 	 * @param array $array
 	 * @return string
 	 */
-	public function dumpArray(array $array): string
+	public static function dumpArray(array $array): string
 	{
 		$result = [];
 		$count = count($array);
@@ -134,7 +134,7 @@ class RoutesDumper
 					break;
 
 				case 'array':
-					$exported = $this->dumpArray($value);
+					$exported = self::dumpArray($value);
 					break;
 
 				default:

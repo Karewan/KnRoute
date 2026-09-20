@@ -23,13 +23,15 @@ spl_autoload_register(static function (string $class): void {
 });
 
 $cacheFile = sys_get_temp_dir() . '/knroute_cache_format_' . bin2hex(random_bytes(8)) . '.php';
+$productionCacheFile = sys_get_temp_dir() . '/knroute_production_cache_format_' . bin2hex(random_bytes(8)) . '.php';
 
 try {
-	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile);
+	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
 	$cache = require $cacheFile;
 
-	assertSame(2, $cache[5] ?? null, 'cache format version');
-	assertTrue(is_string($cache[4] ?? null), 'controller signature');
+	assertSame(3, $cache[4] ?? null, 'cache format version');
+	assertTrue(is_string($cache[5] ?? null), 'controller signature');
+	assertTrue(is_string($cache[6] ?? null), 'controller quick signature');
 
 	$middlewareAction = $cache[0]['/middleware/both'][0][0] ?? null;
 	assertSame(MIDDLEWARE_CONTROLLER, $middlewareAction[0] ?? null, 'cached middleware controller');
@@ -45,14 +47,21 @@ try {
 	assertSame([], $typedAction[2] ?? null, 'cached typed route middlewares');
 	assertSame(['id' => 'int'], $typedAction[3] ?? null, 'cached argument conversion plan');
 
-	$cache[5] = 1;
+	$cache[4] = 1;
 	file_put_contents($cacheFile, '<?php return ' . var_export($cache, true) . ';');
-	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile);
-	assertSame(2, (require $cacheFile)[5] ?? null, 'legacy cache regeneration');
+	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $cacheFile, true);
+	assertSame(3, (require $cacheFile)[4] ?? null, 'legacy cache regeneration');
+
+	(new Router())->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', $productionCacheFile, false);
+	$productionCache = require $productionCacheFile;
+	assertSame(3, $productionCache[4] ?? null, 'production cache format version');
+	assertTrue(!array_key_exists(5, $productionCache), 'production cache content signature is omitted');
+	assertTrue(!array_key_exists(6, $productionCache), 'production cache quick signature is omitted');
 
 	echo "PASS  Cache format stores and refreshes execution metadata\n";
 } finally {
 	if (is_file($cacheFile)) unlink($cacheFile);
+	if (is_file($productionCacheFile)) unlink($productionCacheFile);
 }
 
 function findAction(array $dynamicRoutes, string $controller, string $method): ?array

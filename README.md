@@ -65,9 +65,9 @@ $router->registerRoutesFromControllers(
 $router->run();
 ```
 
-`cacheFile` may be `null` to disable the cache. In production, leave `scanForModifiedControllers` set to `false` (its default). When the cache exists, KnRoute loads it without reading the controllers directory. Warm or regenerate it during deployment whenever controllers change.
+`cacheFile` may be `null` to disable the cache. In production, leave `scanForModifiedControllers` set to `false` (its default). KnRoute neither computes nor stores controller signatures in this mode. When the cache exists, it is loaded without reading the controllers directory. Warm or regenerate it during deployment whenever controllers change.
 
-In development, set `scanForModifiedControllers` to `true`. KnRoute compares a fast content-based signature of the controller files with the signature stored in the cache. Unchanged routes are loaded from cache without repeating tokenization, reflection, attribute construction, or route compilation. This development check still reads the controller files and must not be enabled in production.
+In development, set `scanForModifiedControllers` to `true`. KnRoute first compares a metadata-only signature built from each controller's path, size, and modification time. It reads and hashes file contents only when that fast signature changes, and recompiles routes only when the content hash also changes. The directory traversal and metadata checks still have a cost, so this option must not be enabled in production.
 
 ### Different types of routes
 

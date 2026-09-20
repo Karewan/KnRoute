@@ -22,7 +22,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-	private const int CACHE_FORMAT_VERSION = 2;
+	private const int CACHE_FORMAT_VERSION = 3;
 
 	/**
 	 * Compiled routes
@@ -180,7 +180,7 @@ class Router
 				throw new RuntimeException(sprintf('Invalid routes cache file "%s"', $cacheFile));
 			}
 
-			if (($cachedRoutes[5] ?? null) === self::CACHE_FORMAT_VERSION) {
+			if (($cachedRoutes[4] ?? null) === self::CACHE_FORMAT_VERSION) {
 				// Production hot path: load the cache without touching the controllers directory.
 				if (!$scanForModifiedControllers) {
 					$this->setCompiledRoutes($cachedRoutes);
@@ -188,24 +188,38 @@ class Router
 				}
 
 				$controllerFiles = $this->findControllerFiles($controllersPath);
-				$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
-				if (($cachedRoutes[4] ?? null) === $controllersSignature) {
+				$controllersQuickSignature = $this->getControllersQuickSignature($controllersPath, $controllerFiles);
+				if (($cachedRoutes[6] ?? null) === $controllersQuickSignature) {
 					$this->setCompiledRoutes($cachedRoutes);
+					return;
+				}
+
+				$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
+				if (($cachedRoutes[5] ?? null) === $controllersSignature) {
+					$cachedRoutes[6] = $controllersQuickSignature;
+					$this->setCompiledRoutes($cachedRoutes);
+					$this->saveCacheFile($cachedRoutes, $cacheFile);
 					return;
 				}
 			}
 		}
 
 		$controllerFiles ??= $this->findControllerFiles($controllersPath);
-		$controllersSignature ??= $this->getControllersSignature($controllersPath, $controllerFiles);
+		if ($scanForModifiedControllers) {
+			$controllersQuickSignature ??= $this->getControllersQuickSignature($controllersPath, $controllerFiles);
+			$controllersSignature ??= $this->getControllersSignature($controllersPath, $controllerFiles);
+		}
 		$routes = $this->findRoutesFromControllers($controllerFiles);
 		$routeDumper = new RoutesDumper($routes);
 		$compiledRoutes = $routeDumper->getCompiledRoutes();
-		$compiledRoutes[4] = $controllersSignature;
-		$compiledRoutes[5] = self::CACHE_FORMAT_VERSION;
+		$compiledRoutes[4] = self::CACHE_FORMAT_VERSION;
+		if ($scanForModifiedControllers) {
+			$compiledRoutes[5] = $controllersSignature;
+			$compiledRoutes[6] = $controllersQuickSignature;
+		}
 		$this->setCompiledRoutes($compiledRoutes);
 
-		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
+		if (!is_null($cacheFile)) $this->saveCacheFile($compiledRoutes, $cacheFile);
 	}
 
 	/**
@@ -261,12 +275,34 @@ class Router
 	}
 
 	/**
+	 * Return a metadata-only signature used to avoid reading unchanged controller files.
+	 * @param string $controllersPath
+	 * @param string[] $controllerFiles
+	 */
+	private function getControllersQuickSignature(string $controllersPath, array $controllerFiles): string
+	{
+		$context = hash_init('xxh128');
+		$baseLength = strlen(rtrim($controllersPath, '/\\')) + 1;
+
+		foreach ($controllerFiles as $file) {
+			clearstatcache(true, $file);
+			$metadata = @stat($file);
+			if ($metadata === false) {
+				throw new RuntimeException(sprintf('Failed to stat controller "%s"', $file));
+			}
+			hash_update($context, substr($file, $baseLength) . "\0" . $metadata['size'] . "\0" . $metadata['mtime'] . "\0");
+		}
+
+		return hash_final($context);
+	}
+
+	/**
 	 * Save the cache file
-	 * @param RoutesDumper $routeDumper
+	 * @param array $compiledRoutes
 	 * @param string $cacheFile
 	 * @return void
 	 */
-	private function saveCacheFile(RoutesDumper $routeDumper, string $cacheFile): void
+	private function saveCacheFile(array $compiledRoutes, string $cacheFile): void
 	{
 		$cacheDir = dirname($cacheFile);
 
@@ -280,7 +316,7 @@ class Router
 		}
 
 		try {
-			if (file_put_contents($tmpFile, '<?php return ' . $routeDumper->dumpArray($this->compiledRoutes) . ';', LOCK_EX) === false) {
+			if (file_put_contents($tmpFile, '<?php return ' . RoutesDumper::dumpArray($compiledRoutes) . ';', LOCK_EX) === false) {
 				throw new RuntimeException('Failed to write the temporary routes cache file');
 			}
 
