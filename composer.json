@@ -23,6 +23,7 @@
 	"scripts": {
 		"test": [
 			"php tests/run.php",
+			"php tests/http_utils.php",
 			"php tests/cache_behavior.php",
 			"php tests/cache_format.php"
 		]

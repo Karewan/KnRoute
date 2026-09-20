@@ -4,24 +4,15 @@ declare(strict_types=1);
 
 namespace Karewan\KnRoute;
 
+use InvalidArgumentException;
+
 class HttpUtils
 {
-	/** @var string */
-	private static string $host;
-
-	/** @var string */
-	private static string $path;
-
-	/** @var array<string,string> */
-	private static array $headers;
-
-	/** @var string */
-	private static string $ip;
-
-	/**
-	 * @var string[]
-	 */
+	/** @var string[] */
 	private static array $trustedProxyHeaders = [];
+
+	/** @var array<string,true> */
+	private static array $trustedProxies = [];
 
 	/**
 	 * Get host
@@ -30,12 +21,8 @@ class HttpUtils
 	 */
 	public static function getHost(bool $allowOptionalServerPort = false): string
 	{
-		if (!isset(self::$host)) {
-			$host = self::getHeader('Host');
-			self::$host = !$allowOptionalServerPort ? explode(':', $host)[0] : $host;
-		}
-
-		return self::$host;
+		$host = self::getHeader('Host');
+		return !$allowOptionalServerPort ? explode(':', $host)[0] : $host;
 	}
 
 	/**
@@ -44,12 +31,8 @@ class HttpUtils
 	 */
 	public static function getPath(): string
 	{
-		if (!isset(self::$path)) {
-			$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
-			self::$path = $path === '*' ? '*' : '/' . trim($path, '/');
-		}
-
-		return self::$path;
+		$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
+		return $path === '*' ? '*' : '/' . trim($path, '/');
 	}
 
 	/**
@@ -87,11 +70,7 @@ class HttpUtils
 	 */
 	public static function getHeader(string $name): string
 	{
-		if (!isset(self::$headers)) {
-			self::$headers = self::normalizeHeaders();
-		}
-
-		return self::$headers[$name] ?? '';
+		return self::normalizeHeaders()[self::normalizeHeaderName($name)] ?? '';
 	}
 
 	/**
@@ -100,11 +79,7 @@ class HttpUtils
 	 */
 	public static function getHeaders(): array
 	{
-		if (!isset(self::$headers)) {
-			self::$headers = self::normalizeHeaders();
-		}
-
-		return self::$headers;
+		return self::normalizeHeaders();
 	}
 
 	/**
@@ -117,7 +92,7 @@ class HttpUtils
 	 */
 	public static function setHeader(string $key, string $value, int $httpCode = 0, bool $replace = true): void
 	{
-		header("{$key}: {$value}", $replace, $httpCode);
+		header(self::normalizeHeaderName($key) . ": {$value}", $replace, $httpCode);
 	}
 
 	/**
@@ -129,7 +104,7 @@ class HttpUtils
 	 */
 	public static function setHeaders(array $headers, int $httpCode = 0, bool $replace = true): void
 	{
-		foreach ($headers as $key => $value) header("{$key}: {$value}", $replace, $httpCode);
+		foreach ($headers as $key => $value) self::setHeader($key, $value, $httpCode, $replace);
 	}
 
 	/**
@@ -201,7 +176,23 @@ class HttpUtils
 	 */
 	public static function setTrustedProxyHeaders(array $headers): void
 	{
-		self::$trustedProxyHeaders = $headers;
+		self::$trustedProxyHeaders = array_values(array_unique(array_map(self::normalizeHeaderName(...), $headers)));
+	}
+
+	/**
+	 * Set the proxy IP addresses allowed to provide trusted forwarding headers.
+	 * @param string[] $proxies
+	 */
+	public static function setTrustedProxies(array $proxies): void
+	{
+		$trustedProxies = [];
+		foreach ($proxies as $proxy) {
+			if (!is_string($proxy) || filter_var($proxy, FILTER_VALIDATE_IP) === false) {
+				throw new InvalidArgumentException(sprintf('Trusted proxy "%s" must be a valid IP address', is_scalar($proxy) ? (string) $proxy : get_debug_type($proxy)));
+			}
+			$trustedProxies[$proxy] = true;
+		}
+		self::$trustedProxies = $trustedProxies;
 	}
 
 	/**
@@ -210,11 +201,7 @@ class HttpUtils
 	 */
 	public static function getIp(): string
 	{
-		if (!isset(self::$ip)) {
-			self::$ip = self::normalizeIp();
-		}
-
-		return self::$ip;
+		return self::normalizeIp();
 	}
 
 	/**
@@ -387,7 +374,7 @@ class HttpUtils
 	 */
 	private static function normalizeHeaderName(string $name): string
 	{
-		return str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', $name))));
+		return str_replace(' ', '-', ucwords(strtolower(str_replace(['_', '-'], ' ', $name))));
 	}
 
 	/**
@@ -396,6 +383,9 @@ class HttpUtils
 	 */
 	private static function normalizeIp(): string
 	{
+		$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+		if (!isset(self::$trustedProxies[$remoteAddress])) return $remoteAddress;
+
 		foreach (self::$trustedProxyHeaders as $header) {
 			$headerValue = self::getHeader($header);
 
@@ -409,6 +399,6 @@ class HttpUtils
 			}
 		}
 
-		return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+		return $remoteAddress;
 	}
 }

@@ -12,6 +12,8 @@ v4.0.0 (unreleased)
 * **Route dumper:** Removed unused recursion state and obsolete host-matching code from `RoutesDumper`.
 * **Cached route execution:** Controller and method middleware metadata and scalar argument conversions are now precompiled into the route cache, removing reflection and `invokeArgs()` from the production request path.
 * **Development cache validation:** Controller caches now use a fast path, size, and modification-time signature before falling back to content hashing, avoiding full controller reads on unchanged development requests. Signatures are neither computed nor stored when controller scanning is disabled.
+* **Stateless HTTP utilities:** Removed request-derived static caches from `HttpUtils` for safe use in long-running workers; request and response header names are now handled case-insensitively and normalized.
+* **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.
@@ -29,7 +31,7 @@ v4.0.0 (unreleased)
 * **Routes cache:** Cache invalidation now detects controller additions, deletions, and content changes; writes clean up temporary files and invalidate OPcache after atomic replacement.
 
 ### Security
-* **Proxy headers:** No proxy IP header is trusted by default; applications must explicitly configure trusted headers with `HttpUtils::setTrustedProxyHeaders()`.
+* **Proxy headers:** Forwarding headers are now accepted only when `REMOTE_ADDR` matches an IP explicitly configured through `HttpUtils::setTrustedProxies()`; applications must also configure allowed header names with `setTrustedProxyHeaders()`.
 
 ### Removed
 * **Inertia.js support:** Removed the Inertia plugin and its `Inertia`, `AlwaysProp`, and `LazyProp` classes.

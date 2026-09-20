@@ -85,7 +85,9 @@ All route attributes target public controller methods and may be repeated on the
 #[Route(['GET', 'POST'], '/resource')] // Selected methods
 ```
 
-Every path must start with `/`. HTTP method names supplied to `Route` are case-sensitive tokens.
+Every path must start with `/` and must not end with `/`, except for the root route itself. For example, declare `/users`, not `/users/`. Request paths are normalized by trimming their trailing slash before matching, which keeps routing consistent across web servers that preserve or rewrite trailing slashes differently.
+
+HTTP method names supplied to `Route` must be uppercase valid tokens. For example, use `GET`, not `get`.
 
 ### Add route attributes to controller methods
 
@@ -337,6 +339,7 @@ function getLanguages(): string;
 function getAcceptEncoding(): string;
 function getReferer(): string;
 function setTrustedProxyHeaders(array $headers): void;
+function setTrustedProxies(array $proxies): void;
 function getIp(): string;
 function getServerPort(): int;
 function getClientPort(): int;
@@ -351,15 +354,18 @@ function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
 
+`HttpUtils` does not cache request-derived values, making it safe for long-running workers that serve multiple requests. Header lookup is case-insensitive. Header names passed to `setHeader()`, `setHeaders()`, and `setTrustedProxyHeaders()` are normalized to standard title case.
+
 `getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
 
-No proxy header is trusted by default. If the application runs behind a trusted reverse proxy, explicitly configure the headers that proxy controls:
+No proxy address or proxy header is trusted by default. If the application runs behind a trusted reverse proxy, explicitly configure both its IP address and the headers it controls:
 
 ```php
-HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP']);
+HttpUtils::setTrustedProxies(['10.0.0.10', '2001:db8::10']);
+HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP', 'X-Forwarded-For']);
 ```
 
-Never trust client-controlled forwarding headers. When none of the configured headers contains a valid IP address, `getIp()` falls back to `REMOTE_ADDR`.
+Forwarding headers are ignored unless `REMOTE_ADDR` exactly matches a configured trusted proxy. When none of the configured headers contains a valid IP address, `getIp()` falls back to `REMOTE_ADDR`.
 
 During `Router::run()`, KnRoute defines the boolean constant `IS_XHR`. It is `true` when the `X-Requested-With` header equals `XMLHttpRequest`.
 

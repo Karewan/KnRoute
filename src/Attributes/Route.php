@@ -37,14 +37,15 @@ class Route
 		private array $methods,
 		private string $path
 	) {
-		if (!str_starts_with($path, '/')) {
-			throw new InvalidArgumentException(sprintf('Route path "%s" must start with "/"', $path));
-		}
+		self::validatePath($path);
 
 		$seen = [];
 		foreach ($methods as $method) {
 			if (!is_string($method) || !preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $method)) {
-				throw new InvalidArgumentException('HTTP methods must be valid case-sensitive tokens');
+				throw new InvalidArgumentException('HTTP methods must be valid uppercase tokens; for example "GET"');
+			}
+			if ($method !== strtoupper($method)) {
+				throw new InvalidArgumentException(sprintf('HTTP method "%s" must be uppercase; use "%s" instead', $method, strtoupper($method)));
 			}
 			if (isset($seen[$method])) {
 				throw new InvalidArgumentException(sprintf('HTTP method "%s" is declared more than once', $method));
@@ -69,7 +70,9 @@ class Route
 	 */
 	public function setPath(string $path): void
 	{
+		self::validatePath($path);
 		$this->path = $path;
+		$this->compiled = null;
 	}
 
 	/**
@@ -150,5 +153,15 @@ class Route
 	{
 		if (!is_null($this->compiled)) return $this->compiled;
 		return $this->compiled = RoutesCompiler::compile($this);
+	}
+
+	private static function validatePath(string $path): void
+	{
+		if (!str_starts_with($path, '/')) {
+			throw new InvalidArgumentException(sprintf('Route path "%s" must start with "/"; for example "/users"', $path));
+		}
+		if ($path !== '/' && str_ends_with($path, '/')) {
+			throw new InvalidArgumentException(sprintf('Route path "%s" must not end with "/"; use "%s" instead', $path, rtrim($path, '/')));
+		}
 	}
 }
