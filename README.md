@@ -2,27 +2,30 @@
 
 Simple and fast PHP 8.3+ router with route attributes and caching.
 
-## Table of content
+## Table of contents
 
 - [KnRoute](#knroute)
-	- [Table of content](#table-of-content)
+	- [Table of contents](#table-of-contents)
 	- [Installation](#installation)
 		- [Requirements](#requirements)
 		- [Getting started](#getting-started)
-		- [Running the tests](#running-the-tests)
 	- [Usage](#usage)
 		- [Register routes from the controllers and run the router](#register-routes-from-the-controllers-and-run-the-router)
 		- [Different types of routes](#different-types-of-routes)
 		- [Add route attributes to controller methods](#add-route-attributes-to-controller-methods)
+		- [Controller discovery rules](#controller-discovery-rules)
+		- [Route matching and HTTP semantics](#route-matching-and-http-semantics)
 		- [Use variables inside a path](#use-variables-inside-a-path)
-		- [Variable types with their corresponding regex](#variable-types-with-their-corresponding-regex)
+		- [Variable types](#variable-types)
 		- [Create a middleware](#create-a-middleware)
 		- [Use a middleware on a class](#use-a-middleware-on-a-class)
 		- [Use a middleware on a class method](#use-a-middleware-on-a-class-method)
 		- [Create a middleware with parameters](#create-a-middleware-with-parameters)
 		- [Use a middleware with parameters](#use-a-middleware-with-parameters)
 		- [Use global middlewares](#use-global-middlewares)
-		- [HttpUtils class (all methods are static)](#httputils-class-all-methods-are-static)
+		- [Inspect compiled routes](#inspect-compiled-routes)
+		- [HttpUtils](#httputils)
+	- [Tests](#tests)
 	- [Changelog](#changelog)
 	- [License](#license)
 
@@ -34,14 +37,8 @@ PHP 8.3+
 
 ### Getting started
 
-```
-$ composer require karewan/knroute
-```
-
-### Running the tests
-
 ```shell
-composer test
+composer require karewan/knroute
 ```
 
 ## Usage
@@ -53,62 +50,42 @@ declare(strict_types=1);
 
 use Karewan\KnRoute\Router;
 
-// Must be false in production
+// Enable controller change detection only in development.
 const IS_DEV = true;
 
-// Init the router
 $router = new Router();
 
-// Scan controllers, register routes and optionnaly cache them
 $router->registerRoutesFromControllers(
-	// Folder to be scanned
 	controllersPath: __DIR__ . '/App/Controllers',
-	// Compiled routes cache
 	cacheFile: __DIR__ . '/tmp/cache.php',
-	// Development only: invalidate the cache when controller contents change
 	scanForModifiedControllers: IS_DEV
 );
 
-// Run the router (nothing will be executed below this line)
+// Sends the response and terminates the request.
 $router->run();
 ```
 
-In production, always leave `scanForModifiedControllers` set to `false` (its default). When the cache file exists, KnRoute loads it directly without scanning or reading the controllers directory. Generate or warm the cache during deployment and replace it whenever controllers change.
+`cacheFile` may be `null` to disable the cache. In production, leave `scanForModifiedControllers` set to `false` (its default). When the cache exists, KnRoute loads it without reading the controllers directory. Warm or regenerate it during deployment whenever controllers change.
 
 In development, set `scanForModifiedControllers` to `true`. KnRoute compares a fast content-based signature of the controller files with the signature stored in the cache. Unchanged routes are loaded from cache without repeating tokenization, reflection, attribute construction, or route compilation. This development check still reads the controller files and must not be enabled in production.
 
 ### Different types of routes
 
-All are method attributes.
+All route attributes target public controller methods and may be repeated on the same method.
 
 ```php
-// All HTTP methods
-#[Any('/test')]
-
-// HTTP DELETE method
-#[Delete('/test')]
-
-// HTTP GET method
-#[Get('/test')]
-
-// HTTP HEAD method
-#[Head('/test')]
-
-// HTTP OPTIONS method
-#[Options('/test')]
-
-// HTTP PATCH method
-#[Patch('/test')]
-
-// HTTP POST method
-#[Post('/test')]
-
-// HTTP PUT method
-#[Put('/test')]
-
-// Use an array of HTTP methods
-#[Route(['GET', 'POST'], '/test')]
+#[Get('/resource')]
+#[Post('/resource')]
+#[Put('/resource')]
+#[Patch('/resource')]
+#[Delete('/resource')]
+#[Head('/resource')]
+#[Options('/resource')]
+#[Any('/resource')]                    // Fallback when no explicit method route matches
+#[Route(['GET', 'POST'], '/resource')] // Selected methods
 ```
+
+Every path must start with `/`. HTTP method names supplied to `Route` are case-sensitive tokens.
 
 ### Add route attributes to controller methods
 
@@ -137,30 +114,57 @@ class IndexController
 }
 ```
 
+### Controller discovery rules
+
+The scanned directory is recursive. Each PHP file may declare at most one named class. Anonymous classes are ignored, abstract classes do not register routes, and only public methods declared directly on the concrete class are inspected; inherited methods are not registered again.
+
+Controller files should follow PSR-4 naming so the discovered class can be loaded by the application autoloader. The discovery pass tokenizes files but does not explicitly include them.
+
+### Route matching and HTTP semantics
+
+- Static routes take precedence over dynamic routes, and method-specific routes take precedence over `Any` routes.
+- Equivalent routes for the same method are rejected during compilation instead of depending on file order.
+- Route compilation is deterministic across controller file and declaration order.
+- `HEAD` uses an explicit `HEAD` route when present. Otherwise, a matching `GET` or `Any` route confirms the resource without executing its controller action, and the response body is suppressed.
+- `OPTIONS` uses an explicit route when present. Otherwise, KnRoute returns `204 No Content` with an `Allow` header. `OPTIONS *` advertises server capabilities.
+- A known path with an unsupported method returns `405 Method Not Allowed`; an unknown path returns `404 Not Found`; an unknown HTTP method returns `501 Not Implemented` unless an application route accepts it.
+
 ### Use variables inside a path
 
-Variables use the strict `{name:type}` syntax. Names must be valid ASCII PHP parameter names, must be unique in the route, and are limited to 32 characters.
+Variables use the strict `{name:type}` syntax. A variable name must:
+
+- be a valid ASCII PHP parameter name;
+- be unique within the route;
+- contain no more than 32 characters;
+- exactly match a parameter of the controller method.
+
+Conversely, every required controller parameter must have a matching route variable. Optional controller parameters are allowed. Invalid declarations are rejected when routes are compiled.
 
 ```php
 #[Post('/amd/{id:uint}/ryzen/{model:alnum}')]
-public function topSecret(int $id, string $model):void {
+public function topSecret(int $id, string $model): void
+{
 	echo "AmdController@topSecret(id={$id},model={$model})";
 }
 ```
 
-### Variable types with their corresponding regex
+Matching is performed against the encoded request path. Captured values are then decoded once with `rawurldecode()` before the controller is called. Consequently, `%20` becomes a space while a literal `+` remains `+`.
 
-| Type | Matches |
-| --- | --- |
-| `alpha` | ASCII letters (`A-Z`, `a-z`) |
-| `alnum` | ASCII letters and decimal digits |
-| `uint` | An unsigned decimal integer in canonical form |
-| `int` | A signed or unsigned decimal integer in canonical form |
-| `hex` | Uppercase or lowercase hexadecimal digits |
-| `slug` | Alphanumeric words separated by single hyphens |
-| `uuid` | A canonical 8-4-4-4-12 hexadecimal UUID string |
-| `segment` | One non-empty path segment; `/` is excluded |
-| `path` | A non-empty value that may contain `/` characters |
+### Variable types
+
+| Type | Pattern | Examples |
+| --- | --- | --- |
+| `alpha` | ASCII letters | `abc`, `KnRoute` |
+| `alnum` | ASCII letters and decimal digits | `abc123` |
+| `uint` | Canonical unsigned decimal integer | `0`, `42` |
+| `int` | Canonical signed or unsigned decimal integer | `0`, `42`, `-42` |
+| `hex` | Uppercase or lowercase hexadecimal digits | `deadBEEF` |
+| `slug` | Alphanumeric words separated by single hyphens | `my-page-2` |
+| `uuid` | Canonical 8-4-4-4-12 hexadecimal UUID | `550e8400-e29b-41d4-a716-446655440000` |
+| `segment` | One non-empty path segment; `/` is excluded | `file.txt`, `a+b` |
+| `path` | A non-empty value that may contain `/` | `images/icons/logo.svg` |
+
+`uint` and `int` reject leading zeroes such as `042`; `int` also rejects `-0`. `slug` rejects leading, trailing, and consecutive hyphens. Use `path` only as the final variable unless the following static text makes the intended boundary unambiguous.
 
 ### Create a middleware
 
@@ -182,7 +186,7 @@ class AuthMiddleware implements IMiddleware
 	 */
 	public function handle(): void
 	{
-		if(!isLogged()) {
+		if (!isLogged()) {
 			HttpUtils::dieStatus(401);
 		}
 	}
@@ -294,7 +298,7 @@ class TestController
 
 ### Use global middlewares
 
-Global middlewares execute before route matching and automatic responses such as `OPTIONS`.
+Global middlewares execute in registration order, before route matching and automatic responses such as `OPTIONS`. The complete request order is: global middlewares, route matching, class middlewares, controller construction, method middlewares, then controller action.
 
 ```php
 $router = new Router();
@@ -303,15 +307,23 @@ $router->registerRoutesFromControllers($controllersPath, $cacheFile);
 $router->run();
 ```
 
-### HttpUtils class (all methods are static)
+### Inspect compiled routes
 
-Karewan\KnRoute\HttpUtils::
+`dumpRoutesFromController()` returns a human-readable route table. It is useful in development and deployment diagnostics; it scans and compiles the supplied controllers.
 
 ```php
-function getHost(): string;
+echo $router->dumpRoutesFromController(__DIR__ . '/App/Controllers');
+```
+
+### HttpUtils
+
+All methods on `Karewan\KnRoute\HttpUtils` are static.
+
+```php
+function getHost(bool $allowOptionalServerPort = false): string;
 function getPath(): string;
 function getMethod(): string;
-function getProtocol():string;
+function getProtocol(): string;
 function hasHeader(string $name): bool;
 function getHeader(string $name): string;
 function getHeaders(): array;
@@ -324,6 +336,7 @@ function getUserAgent(): string;
 function getLanguages(): string;
 function getAcceptEncoding(): string;
 function getReferer(): string;
+function setTrustedProxyHeaders(array $headers): void;
 function getIp(): string;
 function getServerPort(): int;
 function getClientPort(): int;
@@ -338,18 +351,43 @@ function location(string $path = '/', int $httpCode = 302): never;
 function dieStatus(int $code): never;
 ```
 
-Global constant (bool)
+`getBody()` returns the request body unchanged, including leading and trailing whitespace. `getJsonBody()` decodes that raw body.
+
+No proxy header is trusted by default. If the application runs behind a trusted reverse proxy, explicitly configure the headers that proxy controls:
+
 ```php
-IS_XHR
+HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP']);
 ```
+
+Never trust client-controlled forwarding headers. When none of the configured headers contains a valid IP address, `getIp()` falls back to `REMOTE_ADDR`.
+
+During `Router::run()`, KnRoute defines the boolean constant `IS_XHR`. It is `true` when the `X-Requested-With` header equals `XMLHttpRequest`.
+
+```php
+if (IS_XHR) {
+	// Handle an XMLHttpRequest request.
+}
+```
+
+## Tests
+
+The test suite requires only PHP and Composer; it does not depend on PHPUnit or an external web server. Run all routing and cache tests from the project root:
+
+```shell
+composer test
+```
+
+The suite starts isolated PHP processes to exercise complete requests. It covers static and dynamic routes, every variable type, URL decoding, HTTP methods and automatic responses, middleware ordering, controller discovery, invalid declarations, conflicting routes, and cache invalidation.
+
+A successful run ends with zero failures and a passing cache-behavior check. The command returns a non-zero exit code when any assertion fails, so it can be used directly in continuous integration.
 
 ## Changelog
 
-See the changelog [here](CHANGELOG.md)
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-See the license [here](LICENSE.txt)
+See [LICENSE.txt](LICENSE.txt).
 
 ```
 Copyright © 2024 - 2026 Florent VIALATTE (github.com/Karewan/KnRoute)
