@@ -74,6 +74,7 @@ $tests = [
 	['OPTIONS asterisk includes methods implied by GET', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS'], [], false, 'NoAny'],
 	['HEAD executes GET fallback without returning its body', 'HEAD', '/head-fallback', 200, '', ROUTING_CONTROLLER, 'headFallback', ['x-head-fallback' => 'executed'], ['cache-control', 'pragma', 'expires']],
 	['HEAD executes Any fallback without returning its body', 'HEAD', '/any', 200, '', ROUTING_CONTROLLER, 'anyMethod'],
+	['HEAD suppresses output from global middleware before hooks', 'HEAD', '/static', 200, '', ROUTING_CONTROLLER, 'staticRoute', [], [], 3],
 	['HEAD is rejected when GET is unavailable', 'HEAD', '/post-only', 405, '', null, null, ['allow' => 'POST, OPTIONS']]
 ];
 
@@ -83,6 +84,7 @@ $compilationTests = [
 	['Overlapping dynamic route types are rejected', 'ConflictOverlappingDynamic', LogicException::class],
 	['Different dynamic structures that overlap are rejected', 'ConflictDifferentStructure', LogicException::class],
 	['Nested dynamic structures that overlap are rejected', 'ConflictNestedStructure', LogicException::class],
+	['Different structures with six constrained variables are rejected', 'ConflictManyVariables', LogicException::class],
 	['Overlapping Any routes are rejected', 'ConflictAnyDynamic', LogicException::class],
 	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class],
 	['Lowercase HTTP methods are rejected', 'InvalidMethodCase', InvalidArgumentException::class],

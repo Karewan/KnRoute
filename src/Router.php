@@ -60,17 +60,24 @@ class Router
 	 */
 	public function run(): void
 	{
+		$this->matchedController = null;
+		$this->matchedMethod = null;
+
 		$requestMethod = HttpUtils::getMethod();
 		$headOutputBufferLevel = null;
 
 		try {
-			$this->runMiddlewareStack($this->globalMiddlewares, function () use ($requestMethod, &$headOutputBufferLevel): void {
+			if ($requestMethod === 'HEAD') {
+				// Suppress output from every part of the request, including global middleware hooks.
+				$headOutputBufferLevel = ob_get_level();
+				ob_start(static fn(): string => '');
+			}
+
+			$this->runMiddlewareStack($this->globalMiddlewares, function () use ($requestMethod): void {
 				// The route. Keep ordinary methods on the shortest possible hot path.
 				switch ($requestMethod) {
 				case 'HEAD':
 					// A HEAD response must never contain a body, including for explicit HEAD routes.
-					$headOutputBufferLevel = ob_get_level();
-					ob_start(static fn(): string => '');
 					$route = $this->findHeadRoute(HttpUtils::getPath());
 					break;
 

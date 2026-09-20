@@ -32,6 +32,7 @@ namespace {
 	use Tests\ResponseCapture;
 	use Tests\Fixtures\Middlewares\GlobalMiddleware;
 	use Tests\Fixtures\Middlewares\SecondGlobalMiddleware;
+	use Tests\Fixtures\Middlewares\EchoGlobalMiddleware;
 
 	const PROJECT_ROOT = __DIR__ . '/..';
 
@@ -66,6 +67,9 @@ namespace {
 	if ($globalMiddlewareCount >= 2) {
 		$router->addGlobalMiddleware(new SecondGlobalMiddleware());
 	}
+	if ($globalMiddlewareCount >= 3) {
+		$router->addGlobalMiddleware(new EchoGlobalMiddleware());
+	}
 	$controllersPath = __DIR__ . '/Fixtures/' . ($argv[4] ?? 'Controllers');
 	$cacheFile = null;
 	if (($argv[5] ?? '') === 'cache') {
@@ -77,6 +81,9 @@ namespace {
 		}
 		if ($globalMiddlewareCount >= 2) {
 			$router->addGlobalMiddleware(new SecondGlobalMiddleware());
+		}
+		if ($globalMiddlewareCount >= 3) {
+			$router->addGlobalMiddleware(new EchoGlobalMiddleware());
 		}
 	}
 	$router->registerRoutesFromControllers($controllersPath, $cacheFile);

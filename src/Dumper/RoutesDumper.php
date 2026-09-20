@@ -16,6 +16,8 @@ use UnitEnum;
 
 class RoutesDumper
 {
+	private const int REPRESENTATIVE_PATH_LIMIT = 4096;
+
 	/** @var null|Exception */
 	private ?Exception $signalingException = null;
 
@@ -97,6 +99,8 @@ class RoutesDumper
 	{
 		$seen = [];
 		$validated = [];
+		$validatedByFirstStaticSegment = [];
+		$unindexedRoutes = [];
 
 		foreach ($this->routes as $route) {
 			$regex = preg_replace('/\?P<[^>]+>/', '?:', $route->compile()->getRegex());
@@ -115,7 +119,12 @@ class RoutesDumper
 				$seen[$signature][$method] = $route;
 			}
 
-			foreach ($validated as $otherRoute) {
+			$indexKey = self::firstStaticSegment($route);
+			$candidates = $indexKey === null
+				? $validated
+				: array_merge($validatedByFirstStaticSegment[$indexKey] ?? [], $unindexedRoutes);
+
+			foreach ($candidates as $otherRoute) {
 				$commonMethods = self::commonMethods($route, $otherRoute);
 				if ($commonMethods === null || !self::haveOverlappingPaths($route, $otherRoute)) continue;
 
@@ -127,7 +136,21 @@ class RoutesDumper
 				));
 			}
 			$validated[] = $route;
+			if ($indexKey === null) {
+				$unindexedRoutes[] = $route;
+			} else {
+				$validatedByFirstStaticSegment[$indexKey][] = $route;
+			}
 		}
+	}
+
+	/**
+	 * Index routes whose first complete path segment is static. Routes beginning with
+	 * a variable (or mixing a variable into that segment) remain wildcard candidates.
+	 */
+	private static function firstStaticSegment(Route $route): ?string
+	{
+		return preg_match('#^/([^/{]+)/#D', $route->getPath(), $matches) === 1 ? $matches[1] : null;
 	}
 
 	/** @return null|string[] null means that the method domains are disjoint. */
@@ -180,12 +203,12 @@ class RoutesDumper
 
 		$paths = [''];
 		foreach ($parts as $index => $part) {
-			$choices = ($index & 1) === 0 ? [$part] : $values;
+			$choices = ($index & 1) === 0 ? [$part] : self::representativeValuesForDeclaration($part, $values);
 			$expanded = [];
 			foreach ($paths as $path) {
 				foreach ($choices as $choice) {
 					$expanded[] = $path . $choice;
-					if (count($expanded) >= 4096) break 2;
+					if (count($expanded) >= self::REPRESENTATIVE_PATH_LIMIT) break 2;
 				}
 			}
 			$paths = $expanded;
@@ -193,6 +216,27 @@ class RoutesDumper
 
 		$regex = $route->compile()->getRegex();
 		return array_values(array_filter($paths, static fn(string $path): bool => preg_match($regex, $path) === 1));
+	}
+
+	/** @param string[] $fallback @return string[] */
+	private static function representativeValuesForDeclaration(string $declaration, array $fallback): array
+	{
+		if (!preg_match('/^\{[A-Za-z_][A-Za-z0-9_]*:([a-z][a-z0-9_]*)\}$/D', $declaration, $matches)) {
+			return $fallback;
+		}
+
+		return match ($matches[1]) {
+			'alpha' => ['a', 'A'],
+			'alnum' => ['a', 'A1', '0'],
+			'hex' => ['a', 'DeadBeef', '0'],
+			'slug' => ['a', 'a-b', '0'],
+			'uuid' => ['550e8400-e29b-41d4-a716-446655440000'],
+			'uint' => ['0', '1'],
+			'int' => ['0', '1', '-1'],
+			'segment' => array_values(array_filter($fallback, static fn(string $value): bool => !str_contains($value, '/'))),
+			'path' => $fallback,
+			default => $fallback,
+		};
 	}
 
 	/**

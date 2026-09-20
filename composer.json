@@ -26,7 +26,8 @@
 			"php tests/http_utils.php",
 			"php tests/middleware_lifecycle.php",
 			"php tests/cache_behavior.php",
-			"php tests/cache_format.php"
+			"php tests/cache_format.php",
+			"php tests/router_reuse.php"
 		]
 	}
 }

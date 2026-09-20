@@ -30,6 +30,9 @@ v4.0.0 (unreleased)
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed
+* **Matched route state:** `Router::run()` now clears the matched controller and method before every request, preventing long-running router instances from exposing metadata from a previous request after automatic, unknown, or unsupported requests.
+* **HEAD middleware output:** HEAD response buffering now starts before global middleware execution, ensuring that output from `before()` and every later request stage is suppressed as documented.
+* **Complex route conflicts:** Cross-structure ambiguity checks now index routes by their first static segment and use type-specific representative values, reducing unnecessary pairwise work and improving detection for routes with many constrained variables. The documented 4096-path heuristic limit remains in place.
 * **Dynamic route conflicts:** Route compilation now rejects overlapping dynamic routes with different static structures, as well as overlapping `Any` routes, without adding work to cached request handling.
 * **Integer route bounds:** `int` and `uint` variables now reject values outside the platform integer range in their compiled expressions, preventing overflow without adding production cache overhead.
 * **Malformed request URIs:** `HttpUtils::getPath()` now handles `parse_url()` failures safely.
