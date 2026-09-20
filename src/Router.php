@@ -38,16 +38,16 @@ class Router
 	private ?Closure $globalMiddlewareRunner = null;
 
 	/**
-	 * The finded controller
+	 * The matched controller
 	 * @var null|string
 	 */
-	private ?string $findedController = null;
+	private ?string $matchedController = null;
 
 	/**
-	 * The finded method
+	 * The matched method
 	 * @var null|string
 	 */
-	private ?string $findedMethod = null;
+	private ?string $matchedMethod = null;
 
 	/**
 	 * Run
@@ -98,8 +98,8 @@ class Router
 			}
 
 			// The controller, method and execution metadata are all precompiled in the route cache.
-			$this->findedController = $route[0];
-			$this->findedMethod = $route[1];
+			$this->matchedController = $route[0];
+			$this->matchedMethod = $route[1];
 			$middlewares = $route[2];
 			$argumentConverters = $route[3];
 			unset($route[0], $route[1], $route[2], $route[3]);
@@ -108,7 +108,7 @@ class Router
 				(new $middleware(...$arguments))->handle();
 			}
 
-			$controllerInstance = new $this->findedController;
+			$controllerInstance = new $this->matchedController;
 
 			foreach ($route as $name => $value) {
 				$value = rawurldecode($value);
@@ -120,7 +120,7 @@ class Router
 				};
 			}
 
-			$controllerInstance->{$this->findedMethod}(...$route);
+			$controllerInstance->{$this->matchedMethod}(...$route);
 		} catch (MethodNotAllowedException $e) {
 			header('Allow: ' . join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())));
 			http_response_code(405);
@@ -132,21 +132,21 @@ class Router
 	}
 
 	/**
-	 * Return the finded controller
+	 * Return the matched controller
 	 * @return null|string
 	 */
-	public function getFindedController(): ?string
+	public function getMatchedController(): ?string
 	{
-		return $this->findedController;
+		return $this->matchedController;
 	}
 
 	/**
-	 * Return the finded method
+	 * Return the matched method
 	 * @return null|string
 	 */
-	public function getFindedMethod(): ?string
+	public function getMatchedMethod(): ?string
 	{
-		return $this->findedMethod;
+		return $this->matchedMethod;
 	}
 
 	/**

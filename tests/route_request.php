@@ -84,8 +84,8 @@ namespace {
 	register_shutdown_function(static function () use ($router, $cacheFile): void {
 	$metadata = [
 		'status' => http_response_code(),
-		'controller' => $router->getFindedController(),
-		'action' => $router->getFindedMethod(),
+		'controller' => $router->getMatchedController(),
+		'action' => $router->getMatchedMethod(),
 		'headers' => ResponseCapture::$headers
 	];
 

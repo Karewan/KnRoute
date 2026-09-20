@@ -14,6 +14,8 @@ v4.0.0 (unreleased)
 * **Development cache validation:** Controller caches now use a fast path, size, and modification-time signature before falling back to content hashing, avoiding full controller reads on unchanged development requests. Signatures are neither computed nor stored when controller scanning is disabled.
 * **Stateless HTTP utilities:** Removed request-derived static caches from `HttpUtils` for safe use in long-running workers; request and response header names are now handled case-insensitively and normalized.
 * **Content length:** `HttpUtils::getContentLength()` now returns an integer, or `null` when the header is absent.
+* **Matched route accessors:** Renamed `Router::getFindedController()` and `Router::getFindedMethod()` to `getMatchedController()` and `getMatchedMethod()`.
+* **XML responses:** `HttpUtils::outputXml()` now uses the `application/xml` media type.
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.
 
 ### Fixed

@@ -293,7 +293,7 @@ class HttpUtils
 	 */
 	public static function outputXml(string $xmlString, int $httpCode = 200, string $charset = 'utf-8'): never
 	{
-		header("Content-type: text/xml; charset={$charset}", true, $httpCode);
+		header("Content-type: application/xml; charset={$charset}", true, $httpCode);
 		echo $xmlString;
 		die();
 	}
