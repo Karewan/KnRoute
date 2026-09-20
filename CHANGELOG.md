@@ -26,7 +26,7 @@ v4.0.0 (unreleased)
 * **Route variables:** Variable declarations now require the strict `{name:type}` syntax with valid, unique PHP-compatible names; malformed declarations, unknown types, and mismatches with controller parameters are rejected during compilation.
 * **Variable types:** Corrected the misleading `alpha`, `hex`, and `slug` patterns and added `alnum`, `int`, `uint`, `segment`, `path`, and `uuid` types.
 * **Case-sensitive routes:** Request paths are no longer converted to lowercase before route matching.
-* **HEAD and OPTIONS semantics:** HEAD now falls back to GET without a response body, automatic OPTIONS responses advertise the available methods, and invalid HEAD requests correctly return HTTP 405.
+* **HEAD and OPTIONS semantics:** HEAD now executes its GET fallback while suppressing the response body, automatic OPTIONS responses advertise the available methods, and invalid HEAD requests correctly return HTTP 405.
 * **HTTP method routing:** Explicit routes now take priority over `Any`, conflicting routes and invalid method tokens are rejected during compilation, and unsupported methods return HTTP 501.
 * **Routes cache:** Cache invalidation now detects controller additions, deletions, and content changes; writes clean up temporary files and invalidate OPcache after atomic replacement.
 

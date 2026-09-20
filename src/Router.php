@@ -567,10 +567,13 @@ class Router
 			return $ret;
 		}
 
-		// GET and Any confirm that the resource supports HEAD without executing their actions.
-		if (isset($allow['GET'])) {
-			http_response_code(200);
-			die();
+		// RFC 9110 defines HEAD as GET without response content. Execute the matching
+		// GET (or Any) route so it can produce the same status and headers; run()'s
+		// output buffer suppresses only the response body.
+		$getAllow = [];
+		$getPathMatched = false;
+		if ($ret = $this->doSpecialMatch($pathinfo, 'GET', $getAllow, $getPathMatched)) {
+			return $ret;
 		}
 
 		if ($pathMatched) {

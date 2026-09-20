@@ -20,6 +20,13 @@ class RoutingController
 		echo 'static';
 	}
 
+	#[Get('/head-fallback')]
+	public function headFallback(): void
+	{
+		\Karewan\KnRoute\header('X-Head-Fallback: executed');
+		echo 'get body';
+	}
+
 	#[Get('/users/{id:uint}')]
 	public function user(string $id): void
 	{

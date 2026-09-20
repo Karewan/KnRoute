@@ -53,8 +53,8 @@ $tests = [
 	['OPTIONS is handled automatically', 'OPTIONS', '/static', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS', 'cache-control' => 'no-store']],
 	['OPTIONS bypasses Any routes', 'OPTIONS', '/any', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, PURGE']],
 	['OPTIONS asterisk describes server capabilities', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, PURGE']],
-	['HEAD recognizes GET without executing it', 'HEAD', '/static', 200, '', null, null, [], ['cache-control', 'pragma', 'expires']],
-	['HEAD recognizes Any without executing it', 'HEAD', '/any', 200, '', null, null],
+	['HEAD executes GET fallback without returning its body', 'HEAD', '/head-fallback', 200, '', ROUTING_CONTROLLER, 'headFallback', ['x-head-fallback' => 'executed'], ['cache-control', 'pragma', 'expires']],
+	['HEAD executes Any fallback without returning its body', 'HEAD', '/any', 200, '', ROUTING_CONTROLLER, 'anyMethod'],
 	['HEAD is rejected when GET is unavailable', 'HEAD', '/post-only', 405, '', null, null, ['allow' => 'POST, OPTIONS']]
 ];
 
