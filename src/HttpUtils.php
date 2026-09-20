@@ -172,6 +172,15 @@ class HttpUtils
 	}
 
 	/**
+	 * Check whether the request was made with XMLHttpRequest
+	 * @return bool
+	 */
+	public static function isXmlHttpRequest(): bool
+	{
+		return self::getHeader('X-Requested-With') === 'XMLHttpRequest';
+	}
+
+	/**
 	 * Settings trusted proxy headers for the getIp method
 	 * @param string[] $headers
 	 */

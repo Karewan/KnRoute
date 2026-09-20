@@ -33,7 +33,13 @@ namespace {
 	assertSame('first.example', HttpUtils::getHost(), 'initial host');
 	assertSame('/first', HttpUtils::getPath(), 'initial path');
 	assertSame('first', HttpUtils::getHeader('x-CUSTOM-header'), 'case-insensitive header lookup');
+	assertSame(false, HttpUtils::isXmlHttpRequest(), 'non-XHR request');
 	assertSame(null, HttpUtils::getContentLength(), 'missing content length');
+	$_SERVER['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest';
+	assertSame(true, HttpUtils::isXmlHttpRequest(), 'XHR request');
+	$_SERVER['HTTP_X_REQUESTED_WITH'] = 'xmlhttprequest';
+	assertSame(false, HttpUtils::isXmlHttpRequest(), 'XHR header is case-sensitive');
+	unset($_SERVER['HTTP_X_REQUESTED_WITH']);
 
 	$_SERVER['CONTENT_LENGTH'] = '0';
 	assertSame(0, HttpUtils::getContentLength(), 'zero content length');

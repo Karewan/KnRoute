@@ -16,7 +16,7 @@ v4.0.0 (unreleased)
 * **Content length:** `HttpUtils::getContentLength()` now returns an integer, or `null` when the header is absent.
 * **Matched route accessors:** Renamed `Router::getFindedController()` and `Router::getFindedMethod()` to `getMatchedController()` and `getMatchedMethod()`.
 * **XML responses:** `HttpUtils::outputXml()` now uses the `application/xml` media type.
-* **XHR constant:** `Router::run()` now preserves an existing `IS_XHR` constant instead of attempting to redefine it.
+* **XHR detection:** Removed the global `IS_XHR` constant in favor of `HttpUtils::isXmlHttpRequest()`.
 * **HTTP response defaults:** `Router::run()` no longer emits an empty `Content-Type` header.
 * **Any and OPTIONS semantics:** `Any` now consistently handles every method, including `HEAD` and `OPTIONS`; `OPTIONS *` advertises only methods explicitly declared by the application.
 * **Route declarations:** Route paths may no longer have a trailing slash (except `/`), request trailing slashes remain normalized during matching, and custom HTTP methods must be declared in uppercase.

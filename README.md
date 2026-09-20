@@ -350,6 +350,7 @@ function getUserAgent(): string;
 function getLanguages(): string;
 function getAcceptEncoding(): string;
 function getReferer(): string;
+function isXmlHttpRequest(): bool;
 function setTrustedProxyHeaders(array $headers): void;
 function setTrustedProxies(array $proxies): void;
 function getIp(): string;
@@ -378,14 +379,6 @@ HttpUtils::setTrustedProxyHeaders(['CF-Connecting-IP', 'X-Forwarded-For']);
 ```
 
 Forwarding headers are ignored unless `REMOTE_ADDR` exactly matches a configured trusted proxy. When none of the configured headers contains a valid IP address, `getIp()` falls back to `REMOTE_ADDR`.
-
-During `Router::run()`, KnRoute defines the boolean constant `IS_XHR`. It is `true` when the `X-Requested-With` header equals `XMLHttpRequest`.
-
-```php
-if (IS_XHR) {
-	// Handle an XMLHttpRequest request.
-}
-```
 
 ## Tests
 
