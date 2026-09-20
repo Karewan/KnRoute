@@ -55,9 +55,6 @@ class Router
 	 */
 	public function run(): never
 	{
-		// Remove content-type by default (if not output => not content type)
-		header('Content-Type:');
-
 		// Set a constant to check if current request is XHR
 		if (!defined('IS_XHR')) {
 			define('IS_XHR', HttpUtils::getHeader('X-Requested-With') == 'XMLHttpRequest');
@@ -593,7 +590,7 @@ class Router
 	private function findOptionsRoute(string $pathinfo): array
 	{
 		if ($pathinfo === '*') {
-			header('Allow: ' . join(', ', $this->getAdvertisedMethods()));
+			header('Allow: ' . join(', ', $this->getDeclaredMethods()));
 			http_response_code(204);
 			die();
 		}
@@ -606,14 +603,23 @@ class Router
 			throw new ResourceNotFoundException(sprintf('No routes found for "%s".', $pathinfo));
 		}
 
-		header('Allow: ' . join(', ', $this->normalizeAllowedMethods(array_keys($allow))));
-
 		$optionsAllow = [];
 		$optionsPathMatched = false;
 		if ($ret = $this->doSpecialMatch($pathinfo, 'OPTIONS', $optionsAllow, $optionsPathMatched, false)) {
+			header('Allow: ' . join(', ', $this->normalizeAllowedMethods(array_keys($allow))));
 			return $ret;
 		}
 
+		// Any means every request method, including OPTIONS. An Any controller is
+		// responsible for its own OPTIONS response because its accepted method set
+		// cannot be represented by a finite Allow header.
+		$anyAllow = [];
+		$anyPathMatched = false;
+		if ($ret = $this->doSpecialMatch($pathinfo, 'OPTIONS', $anyAllow, $anyPathMatched)) {
+			return $ret;
+		}
+
+		header('Allow: ' . join(', ', $this->normalizeAllowedMethods(array_keys($allow))));
 		http_response_code(204);
 		die();
 	}
@@ -632,7 +638,7 @@ class Router
 		$allowed['OPTIONS'] = true;
 
 		$ordered = [];
-		foreach ($this->getAdvertisedMethods() as $method) {
+		foreach ($this->getDeclaredMethods() as $method) {
 			if (isset($allowed[$method])) {
 				$ordered[] = $method;
 				unset($allowed[$method]);
@@ -643,14 +649,22 @@ class Router
 	}
 
 	/**
-	 * Return standard and application-defined methods advertised by this router.
+	 * Return methods explicitly declared by the application in a stable order.
 	 * @return string[]
 	 */
-	private function getAdvertisedMethods(): array
+	private function getDeclaredMethods(): array
 	{
-		$methods = array_fill_keys(self::STANDARD_METHODS, true);
-		$methods += $this->knownMethods;
-		return array_keys($methods);
+		$methods = $this->knownMethods;
+		$ordered = [];
+
+		foreach (self::STANDARD_METHODS as $method) {
+			if (isset($methods[$method])) {
+				$ordered[] = $method;
+				unset($methods[$method]);
+			}
+		}
+
+		return array_merge($ordered, array_keys($methods));
 	}
 
 	/**
@@ -725,7 +739,6 @@ class Router
 			$pathMatched = true;
 
 			if (!$requiredMethods && !$matchAny) {
-				$allow += array_fill_keys($this->getAdvertisedMethods(), 0);
 				continue;
 			}
 
@@ -750,7 +763,6 @@ class Router
 					$pathMatched = true;
 
 					if (!$requiredMethods && !$matchAny) {
-						$allow += array_fill_keys($this->getAdvertisedMethods(), 0);
 						continue;
 					}
 

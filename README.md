@@ -127,8 +127,9 @@ Controller files should follow PSR-4 naming so the discovered class can be loade
 - Static routes take precedence over dynamic routes, and method-specific routes take precedence over `Any` routes.
 - Equivalent routes for the same method are rejected during compilation instead of depending on file order.
 - Route compilation is deterministic across controller file and declaration order.
+- `Any` accepts every request method, including `HEAD`, `OPTIONS`, and application-defined methods. Explicit method routes retain priority over `Any`.
 - `HEAD` uses an explicit `HEAD` route when present. Otherwise, it executes the matching `GET` or `Any` route so the response keeps the same status and headers, while suppressing the response body.
-- `OPTIONS` uses an explicit route when present. Otherwise, KnRoute returns `204 No Content` with an `Allow` header. `OPTIONS *` advertises server capabilities.
+- `OPTIONS` uses an explicit `OPTIONS` route first, then an `Any` route. Otherwise, KnRoute returns `204 No Content` with an `Allow` header. `OPTIONS *` lists only methods explicitly declared by application routes.
 - A known path with an unsupported method returns `405 Method Not Allowed`; an unknown path returns `404 Not Found`; an unknown HTTP method returns `501 Not Implemented` unless an application route accepts it.
 
 ### Use variables inside a path

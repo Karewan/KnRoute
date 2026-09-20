@@ -10,7 +10,7 @@ use Attribute;
 class Any extends Route
 {
 	/**
-	 * ANY route => All methods are allowed
+	 * ANY route => All methods are allowed, including HEAD and OPTIONS
 	 * @param string $path
 	 * @return void
 	 */
