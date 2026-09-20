@@ -14,6 +14,7 @@ use RecursiveIteratorIterator;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
+use LogicException;
 use RuntimeException;
 
 class Router
@@ -340,8 +341,15 @@ class Router
 
 		foreach ($this->findAllClass($controllerFiles) as $class) {
 			$controller = new ReflectionClass($class);
+			if ($controller->isAbstract()) {
+				continue;
+			}
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+				if ($method->getDeclaringClass()->getName() !== $controller->getName()) {
+					continue;
+				}
+
 				foreach ($method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
 					$route = $attribute->newInstance();
 					$route->setAction([$controller->getName(), $method->getName()]);
@@ -360,10 +368,10 @@ class Router
 	 */
 	private function findAllClass(array $controllerFiles): array
 	{
-		$tokens = [];
 		$types = [];
 
 		foreach ($controllerFiles as $file) {
+			$fileTypes = [];
 			$namespace = '';
 			$content = file_get_contents($file);
 			if ($content === false) {
@@ -375,8 +383,6 @@ class Router
 			for ($i = 0; $i < $numTokens; $i++) {
 				// Skip literals
 				if (is_string($tokens[$i])) continue;
-
-				$className = '';
 
 				switch ($tokens[$i][0]) {
 					case T_NAMESPACE:
@@ -394,32 +400,25 @@ class Router
 						}
 						break;
 
-					case T_CLASS: // Scan previous tokens to see if they're double colons, which would mean this is a class constant
-						for ($j = $i - 1; $j >= 0; $j--) {
-							if ($tokens[$j][0] === T_DOUBLE_COLON) {
-								break 2;
+					case T_CLASS:
+						while (++$i < $numTokens) {
+							if (is_array($tokens[$i]) && in_array($tokens[$i][0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+								continue;
 							}
-
-							if ($tokens[$j][0] === T_WHITESPACE) {
-								// Since we found whitespace, then we know this isn't a class constant
-								// Now, check if it's an abstract class
-								$isAbstract = isset($tokens[$j - 1][0]) && $tokens[$j - 1][0] === T_ABSTRACT;
-								if ($isAbstract) break 2;
-								break;
+							if (is_array($tokens[$i]) && $tokens[$i][0] === T_STRING) {
+								$fileTypes[] = ltrim($namespace . '\\' . $tokens[$i][1], '\\');
 							}
+							break;
 						}
-
-						// Get the class name
-						while (isset($tokens[++$i][1])) {
-							if ($tokens[$i][0] === T_STRING) {
-								$className .= $tokens[$i][1];
-								break;
-							}
-						}
-
-						$types[] = ltrim($namespace . '\\' . $className, '\\');
-						break 2;
+						break;
 				}
+			}
+
+			if (count($fileTypes) > 1) {
+				throw new LogicException(sprintf('Controller file "%s" must declare at most one named class', $file));
+			}
+			if ($fileTypes) {
+				$types[] = $fileTypes[0];
 			}
 		}
 

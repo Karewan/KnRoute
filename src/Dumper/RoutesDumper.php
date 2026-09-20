@@ -29,8 +29,21 @@ class RoutesDumper
 		$this->routes = $routes;
 		$this->validateRoutes();
 
-		// Explicit methods always take precedence over Any, independently of declaration order.
-		usort($this->routes, static fn(Route $a, Route $b): int => (int) empty($a->getMethods()) <=> (int) empty($b->getMethods()));
+		// Keep route precedence deterministic across files and PHP versions. Explicit methods
+		// take precedence over Any routes, then static routes over dynamic routes.
+		usort($this->routes, static fn(Route $a, Route $b): int => [
+			(int) empty($a->getMethods()),
+			(int) (bool) $a->compile()->getPathVariables(),
+			$a->getPath(),
+			implode("\0", $a->getMethods()),
+			implode("\0", $a->getAction())
+		] <=> [
+			(int) empty($b->getMethods()),
+			(int) (bool) $b->compile()->getPathVariables(),
+			$b->getPath(),
+			implode("\0", $b->getMethods()),
+			implode("\0", $b->getAction())
+		]);
 	}
 
 	/**

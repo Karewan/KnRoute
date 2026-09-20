@@ -31,6 +31,10 @@ class Route
 		private array $methods,
 		private string $path
 	) {
+		if (!str_starts_with($path, '/')) {
+			throw new InvalidArgumentException(sprintf('Route path "%s" must start with "/"', $path));
+		}
+
 		$seen = [];
 		foreach ($methods as $method) {
 			if (!is_string($method) || !preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $method)) {

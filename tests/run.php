@@ -36,6 +36,11 @@ $tests = [
 	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
 	['Global middlewares run in declaration order', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-order' => 'first,second'], [], 2],
 	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], true],
+	['Concrete controller classes are scanned', 'GET', '/scanner-concrete', 200, 'concrete', 'Tests\\Fixtures\\Scanner\\ConcreteController', 'concrete', [], [], false, 'Scanner'],
+	['Abstract controller classes are ignored', 'GET', '/scanner-abstract', 404, '', null, null, [], [], false, 'Scanner'],
+	['Inherited controller methods are ignored', 'GET', '/scanner-inherited', 404, '', null, null, [], [], false, 'Scanner'],
+	['Anonymous controller classes are ignored', 'GET', '/scanner-anonymous', 404, '', null, null, [], [], false, 'Scanner'],
+	['Static routes take deterministic precedence over overlapping dynamic routes', 'GET', '/ordering/fixed', 200, 'static', 'Tests\\Fixtures\\Ordering\\StaticController', 'fixed', [], [], false, 'Ordering'],
 	['Unknown path returns 404', 'GET', '/missing', 404, '', null, null],
 	['Unsupported method returns 405', 'POST', '/static', 405, '', null, null, ['allow' => 'GET, HEAD, OPTIONS']],
 	['Unknown method returns 501', 'BREW', '/static', 501, '', null, null, [], [], false, 'NoAny'],
@@ -52,7 +57,9 @@ $tests = [
 $compilationTests = [
 	['Duplicate routes are rejected', 'ConflictDuplicate', LogicException::class],
 	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class],
-	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class]
+	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class],
+	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class],
+	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class]
 ];
 
 $failures = 0;
