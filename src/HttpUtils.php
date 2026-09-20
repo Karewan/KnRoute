@@ -21,10 +21,7 @@ class HttpUtils
 	/**
 	 * @var string[]
 	 */
-	private static array $trustedProxyHeaders = [
-		'CF-Connecting-IP',
-		'X-Forwarded-For'
-	];
+	private static array $trustedProxyHeaders = [];
 
 	/**
 	 * Get host
