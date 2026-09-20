@@ -43,6 +43,12 @@ PHP);
 	$initialCache = require $cacheFile;
 	$initialSignature = $initialCache[4] ?? null;
 	if (!is_string($initialSignature)) throw new RuntimeException('Controller signature is missing from cache.');
+	if (($initialCache[5] ?? null) !== 1) throw new RuntimeException('Cache format version is missing from cache.');
+
+	$initialCache[5] = 0;
+	file_put_contents($cacheFile, '<?php return ' . var_export($initialCache, true) . ';');
+	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile);
+	if (((require $cacheFile)[5] ?? null) !== 1) throw new RuntimeException('An incompatible cache format was not regenerated.');
 
 	file_put_contents($controllerFile, "\n", FILE_APPEND);
 	clearstatcache(true, $controllerFile);
@@ -74,7 +80,7 @@ PHP);
 	rmdir($controllersPath);
 	(new Router())->registerRoutesFromControllers($controllersPath, $cacheFile, false);
 
-	echo "PASS  Cache detects additions, edits and deletions and loads without scanning in production\n";
+	echo "PASS  Cache detects format changes, additions, edits and deletions and loads without scanning in production\n";
 } finally {
 	if (is_file($cacheFile)) unlink($cacheFile);
 	if (is_dir($controllersPath)) rmdir($controllersPath);

@@ -4,6 +4,7 @@ v4.0.0 (unreleased)
 * **HTTP method attributes:** Added `Head` and `Options` route attributes.
 * **Global middleware:** Added `Router::addGlobalMiddleware()` for logic that must run before routes and automatic responses.
 * **Routing tests:** Added a dependency-free functional test suite covering route results, parameters, HTTP methods, and error statuses.
+* **Cache format versioning:** Added an integer format version to route caches so incompatible or legacy caches are automatically regenerated at runtime.
 
 ### Fixed
 * **HTTP method handling:** Fixed `Router` assigning a boolean instead of the request method, which caused automatic `OPTIONS` responses to incorrectly return HTTP 405.

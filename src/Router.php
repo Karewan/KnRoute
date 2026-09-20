@@ -21,6 +21,7 @@ class Router
 {
 	/** @var string[] */
 	private const array STANDARD_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+	private const int CACHE_FORMAT_VERSION = 1;
 
 	/**
 	 * Compiled routes
@@ -179,17 +180,19 @@ class Router
 				throw new RuntimeException(sprintf('Invalid routes cache file "%s"', $cacheFile));
 			}
 
-			// Production hot path: load the cache without touching the controllers directory.
-			if (!$scanForModifiedControllers) {
-				$this->setCompiledRoutes($cachedRoutes);
-				return;
-			}
+			if (($cachedRoutes[5] ?? null) === self::CACHE_FORMAT_VERSION) {
+				// Production hot path: load the cache without touching the controllers directory.
+				if (!$scanForModifiedControllers) {
+					$this->setCompiledRoutes($cachedRoutes);
+					return;
+				}
 
-			$controllerFiles = $this->findControllerFiles($controllersPath);
-			$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
-			if (($cachedRoutes[4] ?? null) === $controllersSignature) {
-				$this->setCompiledRoutes($cachedRoutes);
-				return;
+				$controllerFiles = $this->findControllerFiles($controllersPath);
+				$controllersSignature = $this->getControllersSignature($controllersPath, $controllerFiles);
+				if (($cachedRoutes[4] ?? null) === $controllersSignature) {
+					$this->setCompiledRoutes($cachedRoutes);
+					return;
+				}
 			}
 		}
 
@@ -199,6 +202,7 @@ class Router
 		$routeDumper = new RoutesDumper($routes);
 		$compiledRoutes = $routeDumper->getCompiledRoutes();
 		$compiledRoutes[4] = $controllersSignature;
+		$compiledRoutes[5] = self::CACHE_FORMAT_VERSION;
 		$this->setCompiledRoutes($compiledRoutes);
 
 		if (!is_null($cacheFile)) $this->saveCacheFile($routeDumper, $cacheFile);
