@@ -96,6 +96,7 @@ class RoutesDumper
 	private function validateRoutes(): void
 	{
 		$seen = [];
+		$validated = [];
 
 		foreach ($this->routes as $route) {
 			$regex = preg_replace('/\?P<[^>]+>/', '?:', $route->compile()->getRegex());
@@ -113,7 +114,58 @@ class RoutesDumper
 				}
 				$seen[$signature][$method] = $route;
 			}
+
+			foreach ($validated as $otherRoute) {
+				$commonMethods = array_intersect($route->getMethods(), $otherRoute->getMethods());
+				if (!$commonMethods || !self::haveOverlappingVariableDomains($route, $otherRoute)) continue;
+
+				throw new LogicException(sprintf(
+					'Ambiguous %s routes "%s" and "%s" can match the same path',
+					implode('|', $commonMethods),
+					join('->', $otherRoute->getAction()),
+					join('->', $route->getAction())
+				));
+			}
+			$validated[] = $route;
 		}
+	}
+
+	/**
+	 * Detect overlapping built-in variable types for routes with the same static structure.
+	 * This validation runs only while routes are compiled and adds nothing to runtime matching.
+	 */
+	private static function haveOverlappingVariableDomains(Route $first, Route $second): bool
+	{
+		$firstParts = preg_split('/\{[A-Za-z_][A-Za-z0-9_]*:([a-z][a-z0-9_]*)\}/', $first->getPath(), flags: PREG_SPLIT_DELIM_CAPTURE);
+		$secondParts = preg_split('/\{[A-Za-z_][A-Za-z0-9_]*:([a-z][a-z0-9_]*)\}/', $second->getPath(), flags: PREG_SPLIT_DELIM_CAPTURE);
+		if ($firstParts === false || $secondParts === false || count($firstParts) !== count($secondParts)) return false;
+
+		for ($i = 0, $count = count($firstParts); $i < $count; $i++) {
+			if (($i & 1) === 0) {
+				if ($firstParts[$i] !== $secondParts[$i]) return false;
+				continue;
+			}
+			if (!self::variableTypesOverlap($firstParts[$i], $secondParts[$i])) return false;
+		}
+
+		return true;
+	}
+
+	private static function variableTypesOverlap(string $first, string $second): bool
+	{
+		if ($first === $second) return true;
+
+		$pair = [$first, $second];
+		sort($pair);
+		return !in_array(implode(':', $pair), [
+			'alpha:int',
+			'alpha:uint',
+			'alpha:uuid',
+			'alnum:uuid',
+			'hex:uuid',
+			'int:uuid',
+			'uint:uuid',
+		], true);
 	}
 
 	/**

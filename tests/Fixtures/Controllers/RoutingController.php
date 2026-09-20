@@ -33,6 +33,18 @@ class RoutingController
 		echo "user:{$id}";
 	}
 
+	#[Get('/lookup/{id:uint}')]
+	public function lookupById(string $id): void
+	{
+		echo "lookup-id:{$id}";
+	}
+
+	#[Get('/lookup/{name:alpha}')]
+	public function lookupByName(string $name): void
+	{
+		echo "lookup-name:{$name}";
+	}
+
 	#[Delete('/resources/{id:uint}')]
 	public function deleteResource(string $id): void
 	{

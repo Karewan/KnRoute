@@ -126,6 +126,7 @@ Controller files should follow PSR-4 naming so the discovered class can be loade
 
 - Static routes take precedence over dynamic routes, and method-specific routes take precedence over `Any` routes.
 - Equivalent routes for the same method are rejected during compilation instead of depending on file order.
+- Dynamic routes with the same static structure and overlapping variable types are rejected during compilation. For example, `/users/{id:uint}` conflicts with `/users/{value:segment}` because `segment` also accepts unsigned integers.
 - Route compilation is deterministic across controller file and declaration order.
 - `Any` accepts every request method, including `HEAD`, `OPTIONS`, and application-defined methods. Explicit method routes retain priority over `Any`.
 - `HEAD` uses an explicit `HEAD` route when present. Otherwise, it executes the matching `GET` or `Any` route so the response keeps the same status and headers, while suppressing the response body.

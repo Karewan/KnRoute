@@ -8,6 +8,8 @@ const MIDDLEWARE_CONTROLLER = 'Tests\\Fixtures\\Controllers\\MiddlewareControlle
 $tests = [
 	['GET matches a static route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute'],
 	['GET matches a dynamic route', 'GET', '/users/42', 200, 'user:42', ROUTING_CONTROLLER, 'user'],
+	['Disjoint uint route remains valid', 'GET', '/lookup/42', 200, 'lookup-id:42', ROUTING_CONTROLLER, 'lookupById'],
+	['Disjoint alpha route remains valid', 'GET', '/lookup/Alice', 200, 'lookup-name:Alice', ROUTING_CONTROLLER, 'lookupByName'],
 	['DELETE matches its route', 'DELETE', '/resources/7', 200, 'deleted:7', ROUTING_CONTROLLER, 'deleteResource'],
 	['Any accepts arbitrary methods', 'PATCH', '/any', 200, 'any', ROUTING_CONTROLLER, 'anyMethod'],
 	['Route accepts its first configured method', 'GET', '/multiple', 200, 'multiple', ROUTING_CONTROLLER, 'multipleMethods'],
@@ -63,6 +65,7 @@ $tests = [
 $compilationTests = [
 	['Duplicate routes are rejected', 'ConflictDuplicate', LogicException::class],
 	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class],
+	['Overlapping dynamic route types are rejected', 'ConflictOverlappingDynamic', LogicException::class],
 	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class],
 	['Lowercase HTTP methods are rejected', 'InvalidMethodCase', InvalidArgumentException::class],
 	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class],
