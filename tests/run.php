@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 const ROUTING_CONTROLLER = 'Tests\\Fixtures\\Controllers\\RoutingController';
 const MIDDLEWARE_CONTROLLER = 'Tests\\Fixtures\\Controllers\\MiddlewareController';
+const CONSTRUCTION_CONTROLLER = 'Tests\\Fixtures\\MiddlewareConstruction\\Controller';
 
 $aboveIntegerMaximum = incrementDecimal((string) PHP_INT_MAX);
 $belowIntegerMinimum = '-' . incrementDecimal(substr((string) PHP_INT_MIN, 1));
@@ -58,6 +59,8 @@ $tests = [
 	['Class and method middleware run in order', 'GET', '/middleware/both', 200, 'class>method>controller', MIDDLEWARE_CONTROLLER, 'classAndMethodMiddlewares'],
 	['Enum and exportable object middleware arguments survive caching', 'GET', '/middleware/arguments', 200, 'class>admin:managed>controller', MIDDLEWARE_CONTROLLER, 'middlewareArguments'],
 	['Middleware and typed arguments share compact cache metadata', 'GET', '/middleware/typed/42', 200, 'class>controller:42', MIDDLEWARE_CONTROLLER, 'typedMiddleware'],
+	['Middleware constructors only run for the dispatched route', 'GET', '/construction/second', 200, 'construct:class>construct:second>before:class>before:second>second', CONSTRUCTION_CONTROLLER, 'second', [], [], 0, 'MiddlewareConstruction'],
+	['Variadic middleware arguments are validated without construction', 'GET', '/construction/third-alias', 200, 'construct:class>construct:third>before:class>before:third>third', CONSTRUCTION_CONTROLLER, 'third', [], [], 0, 'MiddlewareConstruction'],
 	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
 	['Global middlewares run in declaration order', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-order' => 'first,second'], [], 2],
 	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], true],
@@ -114,7 +117,9 @@ $compilationTests = [
 	['Ambiguous scalar unions are rejected', 'AmbiguousUnionRouteParameter', LogicException::class],
 	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class],
 	['Middleware attributes require all constructor arguments', 'InvalidMiddlewareMissingArgument', ArgumentCountError::class],
-	['Middleware attribute arguments must match constructor types', 'InvalidMiddlewareArgumentType', TypeError::class]
+	['Middleware attribute arguments must match constructor types', 'InvalidMiddlewareArgumentType', TypeError::class],
+	['Middleware attributes reject unknown named arguments', 'InvalidMiddlewareUnknownArgument', Error::class],
+	['Middleware attributes must respect their declared targets', 'InvalidMiddlewareTarget', Error::class]
 ];
 
 $failures = 0;

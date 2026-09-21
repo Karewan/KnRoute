@@ -1,3 +1,9 @@
+v4.0.1 (2026-09-21)
+----------------------------
+### Fixed
+* **Middleware construction during compilation:** Route discovery no longer instantiates every middleware attribute of every route to validate its arguments. Constructor arguments, attribute targets, and repeatability are now validated through reflection with the strict-typing rules used at dispatch, so middleware constructors only run for the dispatched route, with or without a route cache. Cached request handling is unchanged.
+
+
 v4.0.0 (2026-09-20)
 ----------------------------
 Version 4 is a full breaking release. Existing applications must review the migration notes below before upgrading from v3.

@@ -10,6 +10,7 @@ use Karewan\KnRoute\Exceptions\HttpException;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
 use Karewan\KnRoute\Exceptions\MiddlewareExecutionException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
+use Karewan\KnRoute\Routes\MiddlewareValidator;
 use Closure;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -524,6 +525,7 @@ class Router
 	private function findRoutesFromControllers(array $controllerFiles): array
 	{
 		$routes = [];
+		$middlewareValidator = new MiddlewareValidator();
 
 		foreach ($this->findAllClass($controllerFiles) as [$class, $file]) {
 			$controller = new ReflectionClass($class);
@@ -539,7 +541,7 @@ class Router
 				continue;
 			}
 
-			$controllerMiddlewares = $this->compileMiddlewares($controller->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF));
+			$controllerMiddlewares = $this->compileMiddlewares($controller->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF), $middlewareValidator);
 			$controllerValidated = false;
 
 			foreach ($controller->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
@@ -556,12 +558,13 @@ class Router
 					$controllerValidated = true;
 				}
 
+				$methodMiddlewares = null;
 				foreach ($routeAttributes as $attribute) {
 					$route = $attribute->newInstance();
 					$this->validateRouteParameters($route, $method);
 					$route->setAction([$controller->getName(), $method->getName()]);
 					$route->setExecutionMetadata(
-						array_merge($controllerMiddlewares, $this->compileMiddlewares($method->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF))),
+						array_merge($controllerMiddlewares, $methodMiddlewares ??= $this->compileMiddlewares($method->getAttributes(IMiddleware::class, ReflectionAttribute::IS_INSTANCEOF), $middlewareValidator)),
 						$this->compileArgumentConverters($route, $method)
 					);
 					$routes[] = $route;
@@ -603,13 +606,14 @@ class Router
 	 * @param ReflectionAttribute[] $attributes
 	 * @return array<int,string|array{string,array}>
 	 */
-	private function compileMiddlewares(array $attributes): array
+	private function compileMiddlewares(array $attributes, MiddlewareValidator $validator): array
 	{
 		$middlewares = [];
 		foreach ($attributes as $attribute) {
-			// Instantiate during discovery so missing or incompatible constructor
-			// arguments cannot survive into a production route cache.
-			$attribute->newInstance();
+			// Validate without instantiating: missing or incompatible constructor
+			// arguments cannot survive into a production route cache, and middleware
+			// constructors only run for the dispatched route.
+			$validator->validate($attribute);
 			$arguments = $attribute->getArguments();
 			$middlewares[] = $arguments ? [$attribute->getName(), $arguments] : $attribute->getName();
 		}
