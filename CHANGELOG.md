@@ -1,7 +1,18 @@
 v4.0.1 (2026-09-21)
 ----------------------------
+### Added
+* **Stopping a request:** Added `StopRequestException`. Throw it from a middleware `before()` hook or from a controller action once the response has been produced, to stop the request without producing an error. Raised from a `before()` hook it cancels the controller action and the remaining `before()` hooks; nothing is rendered and the status is left untouched. The stack still unwinds, so every `after()` hook that started runs. It covers redirects, cache hits, `304 Not Modified` responses and other short circuits that `HttpException` cannot express, and replaces `die()`/`exit`, which skip the `after()` hooks and terminate long-running workers.
+
 ### Fixed
 * **Middleware construction during compilation:** Route discovery no longer instantiates every middleware attribute of every route to validate its arguments. Constructor arguments, attribute targets, and repeatability are now validated through reflection with the strict-typing rules used at dispatch, so middleware constructors only run for the dispatched route, with or without a route cache. Cached request handling is unchanged.
+* **Error responses for invalid request URIs:** `HttpUtils::outputError()` no longer rethrows `InvalidRequestUriException` while reporting it. A request URI that `getPath()` rejects now renders its `400` response with an empty `path` instead of escaping the error handler as an uncaught exception.
+* **Middleware unwinding:** `after()` hooks now run whenever the matching `before()` hook completed, including when another `before()` hook, the controller, a route middleware, or another `after()` hook failed. A failing `before()` hook still cancels the controller action, and the middleware that raised it does not get its own `after()` hook because it never finished setting up. Previously a failure outside the controller skipped the remaining `after()` hooks, so global middleware could never release what it had acquired.
+* **Error response ordering:** An `HttpException` is now rendered before the middleware stack that raised it unwinds, so every `after()` hook observes the status the client will receive. Previously only the hooks of the surrounding stacks did: a middleware's own `after()` hooks still saw the status the request started with.
+* **Error responses for invalid UTF-8 paths:** `HttpUtils::outputError()` substitutes invalid UTF-8 sequences instead of throwing `JsonException`. A request path carrying raw non-UTF-8 bytes no longer turns its error response into an unhandled encoding failure.
+
+### Changed
+* **Header lookups:** `HttpUtils::getHeader()` resolves its CGI variable directly instead of normalizing every `$_SERVER` entry on each call, which also speeds up `getHost()`, `getIp()`, `getContentType()`, and `getContentLength()`. `Content-Length` and `Content-Type` are now resolved whether the SAPI exposes them as CGI variables or as request headers.
+* **Route compilation:** Removed the untyped-variable fallback left over from the pre-v4 `{name}` syntax. Every route variable requires the `{name:type}` form, so the fallback expression and its separator lookahead were unreachable.
 
 
 v4.0.0 (2026-09-20)

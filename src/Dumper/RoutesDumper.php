@@ -282,8 +282,7 @@ class RoutesDumper
 	public static function dumpArray(array $array): string
 	{
 		$result = [];
-		$count = count($array);
-		$isList = array_keys($array) === range(0, $count - 1);
+		$isList = array_is_list($array);
 
 		foreach ($array as $key => $value) {
 			switch (gettype($value)) {

@@ -10,6 +10,7 @@ use Karewan\KnRoute\Exceptions\HttpException;
 use Karewan\KnRoute\Exceptions\MethodNotAllowedException;
 use Karewan\KnRoute\Exceptions\MiddlewareExecutionException;
 use Karewan\KnRoute\Exceptions\ResourceNotFoundException;
+use Karewan\KnRoute\Exceptions\StopRequestException;
 use Karewan\KnRoute\Routes\MiddlewareValidator;
 use Closure;
 use RecursiveDirectoryIterator;
@@ -89,9 +90,9 @@ class Router
 				$this->runMiddlewareStack($this->globalMiddlewares, $requestMethod);
 			}
 		} catch (MiddlewareExecutionException $e) {
-			$exception = $e->getMiddlewareException();
-			if (!$exception instanceof HttpException) throw $exception;
-			$this->handleHttpException($exception);
+			// HTTP errors are rendered while the stack unwinds; anything left is
+			// an application failure, reported without the internal wrapper.
+			throw $e->getMiddlewareException();
 		} finally {
 			if (!is_null($headOutputBufferLevel)) {
 				while (ob_get_level() > $headOutputBufferLevel) ob_end_clean();
@@ -176,10 +177,8 @@ class Router
 			} else {
 				$this->runMiddlewareStack($middlewares, $route);
 			}
-		} catch (MiddlewareExecutionException $e) {
-			$exception = $e->getMiddlewareException();
-			if (!$exception instanceof HttpException) throw $e;
-			$this->handleHttpException($exception);
+		} catch (StopRequestException) {
+			// An action without route middlewares produced the response itself.
 		} catch (MethodNotAllowedException $e) {
 			$this->handleHttpError(405, headers: [
 				'Allow' => join(', ', $this->normalizeAllowedMethods($e->getAllowedMethods())),
@@ -280,35 +279,62 @@ class Router
 	 */
 	private function runMiddlewareStack(array $middlewares, string|array $action): void
 	{
+		$started = 0;
+		$exception = null;
+
 		foreach ($middlewares as $middleware) {
 			try {
 				$middleware->before();
 			} catch (Throwable $e) {
-				throw new MiddlewareExecutionException($e);
+				// A failed before hook cancels the action, never the unwinding.
+				$exception = new MiddlewareExecutionException($e);
+				break;
 			}
+			$started++;
 		}
 
-		try {
-			if (is_string($action)) $this->dispatch($action);
-			else $this->executeController($action);
-		} catch (MiddlewareExecutionException $e) {
-			// A nested middleware failed: stop immediately without running outer hooks.
-			throw $e;
-		} catch (Throwable $e) {
-			$actionException = $e;
-		}
-
-		foreach (array_reverse($middlewares) as $middleware) {
+		if (is_null($exception)) {
 			try {
-				$middleware->after();
+				if (is_string($action)) $this->dispatch($action);
+				else $this->executeController($action);
 			} catch (Throwable $e) {
-				throw new MiddlewareExecutionException($e);
+				$exception = $e;
 			}
 		}
 
-		if (isset($actionException)) {
-			throw $actionException;
+		if (!is_null($exception)) {
+			$raised = $exception instanceof MiddlewareExecutionException
+				? $exception->getMiddlewareException()
+				: $exception;
+
+			if ($raised instanceof StopRequestException) {
+				// The hook or the action produced the response itself.
+				$exception = null;
+			} elseif ($raised instanceof HttpException) {
+				// Render the error response before unwinding, so after hooks observe
+				// the status the client will receive instead of the initial one.
+				$this->handleHttpException($raised);
+				$exception = null;
+			}
 		}
+
+		// Every middleware whose before hook completed gets its after hook, whatever
+		// happened afterwards. A middleware whose own before hook failed does not:
+		// it never finished setting up what its after hook would tear down.
+		while ($started-- > 0) {
+			try {
+				$middlewares[$started]->after();
+			} catch (StopRequestException) {
+				// The after hook produced the response itself; keep unwinding.
+			} catch (HttpException $e) {
+				// An after hook may still replace the response with an error.
+				$this->handleHttpException($e);
+			} catch (Throwable $e) {
+				$exception = new MiddlewareExecutionException($e, $exception);
+			}
+		}
+
+		if (!is_null($exception)) throw $exception;
 	}
 
 	/**

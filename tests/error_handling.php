@@ -26,6 +26,7 @@ namespace Karewan\KnRoute {
 
 namespace {
 	use Karewan\KnRoute\HttpError;
+	use Karewan\KnRoute\HttpUtils;
 	use Karewan\KnRoute\IMiddleware;
 	use Karewan\KnRoute\Router;
 	use Tests\ErrorResponseCapture;
@@ -101,6 +102,33 @@ namespace {
 		throw new RuntimeException('A handler accepted a successful status code.');
 	} catch (InvalidArgumentException) {
 	}
+
+	// An error renderer built on outputError() must survive request URIs that
+	// getPath() itself rejects or that are not valid UTF-8.
+	$jsonRouter = new Router();
+	$jsonRouter->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', null);
+	$jsonRouter->setDefaultErrorHandler(static function (HttpError $error): void {
+		HttpUtils::outputError($error->code, $error->title, $error->detail);
+	});
+
+	request($jsonRouter, 'GET', 'http://[');
+	$body = responseBody($jsonRouter);
+	assertSame(400, http_response_code(), 'malformed request URI keeps its status');
+	assertSame([
+		'status' => 400,
+		'path' => '',
+		'title' => 'Bad Request',
+		'detail' => 'The request URI is invalid.',
+	], json_decode($body, true, flags: JSON_THROW_ON_ERROR), 'malformed request URI renders a JSON error');
+
+	request($jsonRouter, 'GET', "/caf\xe9");
+	$body = responseBody($jsonRouter);
+	assertSame(404, http_response_code(), 'invalid UTF-8 path keeps its status');
+	assertSame(
+		'/caf' . "\u{FFFD}",
+		json_decode($body, true, flags: JSON_THROW_ON_ERROR)['path'] ?? null,
+		'invalid UTF-8 path is substituted instead of failing to encode'
+	);
 
 	echo "PASS  HTTP errors support status-specific and default renderers\n";
 

@@ -27,4 +27,16 @@ final class Controller
 	{
 		echo 'third';
 	}
+
+	// Nullable, union, int-to-float widening and repeated attributes must all be
+	// accepted without constructing the middleware while routes are compiled.
+	#[
+		Get('/construction/optional'),
+		OptionalMiddleware(),
+		OptionalMiddleware(nullable: null, union: 7, float: 2, flag: true, list: ['a', 'b'])
+	]
+	public function optional(): void
+	{
+		echo 'optional';
+	}
 }

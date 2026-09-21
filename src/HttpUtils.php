@@ -69,6 +69,19 @@ class HttpUtils
 		return $path === '' ? '/' : $path;
 	}
 
+	/**
+	 * Get the request path, or an empty string when the request URI is invalid.
+	 * @return string
+	 */
+	private static function tryGetPath(): string
+	{
+		try {
+			return self::getPath();
+		} catch (InvalidRequestUriException) {
+			return '';
+		}
+	}
+
 	/** @param array<string,mixed> $parts */
 	private static function hasInvalidUriAuthority(array $parts): bool
 	{
@@ -113,7 +126,20 @@ class HttpUtils
 	 */
 	public static function getHeader(string $name): string
 	{
-		return self::normalizeHeaders()[self::normalizeHeaderName($name)] ?? '';
+		// Resolve the CGI variable directly instead of normalizing every $_SERVER entry.
+		$key = strtoupper(strtr($name, ' -', '__'));
+		$isContentVariable = str_starts_with($key, 'CONTENT_');
+		if (!$isContentVariable) $key = 'HTTP_' . $key;
+
+		$value = $_SERVER[$key] ?? $_SERVER['REDIRECT_' . $key] ?? null;
+
+		// Content-Length and Content-Type are CGI variables, but some SAPIs only
+		// expose them alongside the other request headers.
+		if (is_null($value) && $isContentVariable) {
+			$value = $_SERVER['HTTP_' . $key] ?? $_SERVER['REDIRECT_HTTP_' . $key] ?? null;
+		}
+
+		return is_string($value) ? $value : '';
 	}
 
 	/**
@@ -340,13 +366,16 @@ class HttpUtils
 
 		$error = [
 			'status' => $code,
-			'path' => self::getPath(),
+			// An invalid request URI is itself reported through this helper.
+			'path' => self::tryGetPath(),
 			'title' => $title ?? HttpStatus::getTitle($code),
 			'detail' => $detail ?? HttpStatus::getDetail($code),
 		];
 		$error += $extensions;
 
-		$json = json_encode($error, $flags | JSON_THROW_ON_ERROR, $depth);
+		// The request path is client controlled and may not be valid UTF-8,
+		// which must never turn an error response into an encoding failure.
+		$json = json_encode($error, $flags | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE, $depth);
 		header('Content-type: application/json; charset=utf-8', true, $code);
 		echo $json;
 	}

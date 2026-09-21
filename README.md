@@ -234,6 +234,30 @@ class AuthMiddleware implements IMiddleware
 }
 ```
 
+`before()` hooks run in declaration order, global middlewares first, then class middlewares, then method middlewares. `after()` hooks run in the reverse order.
+
+Once a `before()` hook returns, its `after()` hook is guaranteed to run: whether the action succeeds, the action throws, another middleware fails, or another `after()` hook throws. A `before()` hook that throws cancels the controller action and every remaining `before()` hook, and it does not get its own `after()` hook, since it never finished setting up what that hook would release.
+
+When a hook or the action raises an `HttpException`, the error response is rendered before the stack unwinds. Every `after()` hook therefore observes the final response status, which makes `after()` the right place to log or measure a request whatever its outcome.
+
+### Stop a request
+
+To short-circuit a request without producing an error, produce the response and throw a `StopRequestException`. Raised from a `before()` hook it cancels the controller action and the remaining `before()` hooks; nothing else is rendered and the status is left untouched.
+
+```php
+public function before(): void
+{
+	if (!isLogged()) {
+		HttpUtils::location('/login');
+		throw new StopRequestException();
+	}
+}
+```
+
+It also works from a controller action, for a cache hit or a `304 Not Modified` response. The stack still unwinds, so every `after()` hook that started runs.
+
+Never use `die()` or `exit` for this: they skip the `after()` hooks and terminate the process, which ends the worker in a long-running setup such as RoadRunner, FrankenPHP or Swoole.
+
 ### Use a middleware on a class
 
 Will be executed before instantiating the class.

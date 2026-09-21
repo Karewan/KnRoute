@@ -5,6 +5,8 @@ declare(strict_types=1);
 const ROUTING_CONTROLLER = 'Tests\\Fixtures\\Controllers\\RoutingController';
 const MIDDLEWARE_CONTROLLER = 'Tests\\Fixtures\\Controllers\\MiddlewareController';
 const CONSTRUCTION_CONTROLLER = 'Tests\\Fixtures\\MiddlewareConstruction\\Controller';
+const STOP_CONTROLLER = 'Tests\\Fixtures\\StopRequest\\Controller';
+const STOP_BARE_CONTROLLER = 'Tests\\Fixtures\\StopRequest\\BareController';
 
 $aboveIntegerMaximum = incrementDecimal((string) PHP_INT_MAX);
 $belowIntegerMinimum = '-' . incrementDecimal(substr((string) PHP_INT_MIN, 1));
@@ -61,23 +63,28 @@ $tests = [
 	['Middleware and typed arguments share compact cache metadata', 'GET', '/middleware/typed/42', 200, 'class>controller:42', MIDDLEWARE_CONTROLLER, 'typedMiddleware'],
 	['Middleware constructors only run for the dispatched route', 'GET', '/construction/second', 200, 'construct:class>construct:second>before:class>before:second>second', CONSTRUCTION_CONTROLLER, 'second', [], [], 0, 'MiddlewareConstruction'],
 	['Variadic middleware arguments are validated without construction', 'GET', '/construction/third-alias', 200, 'construct:class>construct:third>before:class>before:third>third', CONSTRUCTION_CONTROLLER, 'third', [], [], 0, 'MiddlewareConstruction'],
-	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], true],
+	['Nullable, union and repeatable middleware arguments survive compilation', 'GET', '/construction/optional', 200, 'construct:class>construct:optional>construct:optional>before:class>optional:1,\'x\',0.0,false,0,null>optional:NULL,7,2.0,true,2,null>optional', CONSTRUCTION_CONTROLLER, 'optional', [], [], 0, 'MiddlewareConstruction'],
+	['A middleware stops the request before the action runs', 'GET', '/stop/middleware', 200, 'trace>stopped>trace-after', STOP_CONTROLLER, 'stoppedByMiddleware', [], [], 0, 'StopRequest'],
+	['An action stops the request once it produced its response', 'GET', '/stop/action', 200, 'trace>action>trace-after', STOP_CONTROLLER, 'stoppedByAction', [], [], 0, 'StopRequest'],
+	['An action without route middlewares stops the request', 'GET', '/stop/bare', 200, 'bare', STOP_BARE_CONTROLLER, 'stoppedWithoutMiddleware', [], [], 0, 'StopRequest'],
+	['A stopped request still unwinds the global middlewares', 'GET', '/stop/middleware', 200, 'trace>stopped>trace-after', STOP_CONTROLLER, 'stoppedByMiddleware', ['x-global-middleware' => 'true'], [], 1, 'StopRequest'],
+	['Global middleware runs before a route', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-middleware' => 'true'], [], 1],
 	['Global middlewares run in declaration order', 'GET', '/static', 200, 'static', ROUTING_CONTROLLER, 'staticRoute', ['x-global-order' => 'first,second'], [], 2],
-	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], true],
-	['Concrete controller classes are scanned', 'GET', '/scanner-concrete', 200, 'concrete', 'Tests\\Fixtures\\Scanner\\ConcreteController', 'concrete', [], [], false, 'Scanner'],
-	['Abstract controller classes are ignored', 'GET', '/scanner-abstract', 404, '', null, null, [], [], false, 'Scanner'],
-	['Inherited controller methods are ignored', 'GET', '/scanner-inherited', 404, '', null, null, [], [], false, 'Scanner'],
-	['Anonymous controller classes are ignored', 'GET', '/scanner-anonymous', 404, '', null, null, [], [], false, 'Scanner'],
-	['Static routes take deterministic precedence over overlapping dynamic routes', 'GET', '/ordering/fixed', 200, 'static', 'Tests\\Fixtures\\Ordering\\StaticController', 'fixed', [], [], false, 'Ordering'],
+	['Global middleware runs before automatic OPTIONS', 'OPTIONS', '/static', 204, '', null, null, ['x-global-middleware' => 'true'], [], 1],
+	['Concrete controller classes are scanned', 'GET', '/scanner-concrete', 200, 'concrete', 'Tests\\Fixtures\\Scanner\\ConcreteController', 'concrete', [], [], 0, 'Scanner'],
+	['Abstract controller classes are ignored', 'GET', '/scanner-abstract', 404, '', null, null, [], [], 0, 'Scanner'],
+	['Inherited controller methods are ignored', 'GET', '/scanner-inherited', 404, '', null, null, [], [], 0, 'Scanner'],
+	['Anonymous controller classes are ignored', 'GET', '/scanner-anonymous', 404, '', null, null, [], [], 0, 'Scanner'],
+	['Static routes take deterministic precedence over overlapping dynamic routes', 'GET', '/ordering/fixed', 200, 'static', 'Tests\\Fixtures\\Ordering\\StaticController', 'fixed', [], [], 0, 'Ordering'],
 	['Unknown path returns 404', 'GET', '/missing', 404, '', null, null],
 	['Unsupported method returns 405', 'POST', '/static', 405, '', null, null, ['allow' => 'GET, HEAD, OPTIONS']],
-	['Unknown method returns 501', 'BREW', '/static', 501, '', null, null, [], [], false, 'NoAny'],
-	['Removed CONNECT method returns 501', 'CONNECT', '/static', 501, '', null, null, [], [], false, 'NoAny'],
-	['Removed TRACE method returns 501', 'TRACE', '/static', 501, '', null, null, [], [], false, 'NoAny'],
+	['Unknown method returns 501', 'BREW', '/static', 501, '', null, null, [], [], 0, 'NoAny'],
+	['Removed CONNECT method returns 501', 'CONNECT', '/static', 501, '', null, null, [], [], 0, 'NoAny'],
+	['Removed TRACE method returns 501', 'TRACE', '/static', 501, '', null, null, [], [], 0, 'NoAny'],
 	['OPTIONS is handled automatically', 'OPTIONS', '/static', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS', 'cache-control' => 'no-store']],
 	['OPTIONS executes an Any route', 'OPTIONS', '/any', 200, 'any', ROUTING_CONTROLLER, 'anyMethod', ['cache-control' => 'no-store'], ['allow']],
 	['OPTIONS asterisk lists only application-declared methods', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, POST, DELETE, OPTIONS, PURGE']],
-	['OPTIONS asterisk includes methods implied by GET', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS'], [], false, 'NoAny'],
+	['OPTIONS asterisk includes methods implied by GET', 'OPTIONS', '*', 204, '', null, null, ['allow' => 'GET, HEAD, OPTIONS'], [], 0, 'NoAny'],
 	['HEAD executes GET fallback without returning its body', 'HEAD', '/head-fallback', 200, '', ROUTING_CONTROLLER, 'headFallback', ['x-head-fallback' => 'executed'], ['cache-control', 'pragma', 'expires']],
 	['HEAD executes Any fallback without returning its body', 'HEAD', '/any', 200, '', ROUTING_CONTROLLER, 'anyMethod'],
 	['HEAD suppresses output from global middleware before hooks', 'HEAD', '/static', 200, '', ROUTING_CONTROLLER, 'staticRoute', [], [], 3],
@@ -85,41 +92,46 @@ $tests = [
 ];
 
 $compilationTests = [
-	['Duplicate routes are rejected', 'ConflictDuplicate', LogicException::class],
-	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class],
-	['Overlapping dynamic route types are rejected', 'ConflictOverlappingDynamic', LogicException::class],
-	['Different dynamic structures that overlap are rejected', 'ConflictDifferentStructure', LogicException::class],
-	['Nested dynamic structures that overlap are rejected', 'ConflictNestedStructure', LogicException::class],
-	['Different structures with six constrained variables are rejected', 'ConflictManyVariables', LogicException::class],
-	['Overlapping Any routes are rejected', 'ConflictAnyDynamic', LogicException::class],
-	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class],
-	['Lowercase HTTP methods are rejected', 'InvalidMethodCase', InvalidArgumentException::class],
-	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class],
-	['Route paths must not end with a slash', 'InvalidTrailingSlash', InvalidArgumentException::class],
-	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class],
-	['Classes loaded from a different file are rejected', 'ClassmapMismatch', LogicException::class],
-	['Variables require a type', 'InvalidVariableMissingType', LogicException::class],
-	['Variable names must be valid', 'InvalidVariableName', LogicException::class],
-	['Variable names have a bounded length', 'InvalidVariableNameLength', LogicException::class],
-	['Variable names must be unique', 'InvalidVariableDuplicate', LogicException::class],
-	['Variable types must be known', 'InvalidVariableType', LogicException::class],
-	['Variables must be closed', 'InvalidVariableUnclosed', LogicException::class],
-	['Closing braces must match variables', 'InvalidVariableClosingBrace', LogicException::class],
-	['Route variables must match controller parameters', 'InvalidVariableParameter', LogicException::class],
-	['Required controller parameters must match route variables', 'MissingVariableParameter', LogicException::class],
-	['Controllers with routes must be instantiable', 'NonInstantiableController', LogicException::class],
-	['Controller constructors cannot require arguments', 'RequiredControllerConstructor', LogicException::class],
-	['Controller actions cannot be static', 'StaticControllerAction', LogicException::class],
-	['Controller constructors cannot be actions', 'ConstructorControllerAction', LogicException::class],
-	['Controller destructors cannot be actions', 'DestructorControllerAction', LogicException::class],
-	['Route parameters cannot be passed by reference', 'ReferenceRouteParameter', LogicException::class],
-	['Object-typed route parameters are rejected', 'IncompatibleNamedRouteParameter', LogicException::class],
-	['Ambiguous scalar unions are rejected', 'AmbiguousUnionRouteParameter', LogicException::class],
-	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class],
-	['Middleware attributes require all constructor arguments', 'InvalidMiddlewareMissingArgument', ArgumentCountError::class],
-	['Middleware attribute arguments must match constructor types', 'InvalidMiddlewareArgumentType', TypeError::class],
-	['Middleware attributes reject unknown named arguments', 'InvalidMiddlewareUnknownArgument', Error::class],
-	['Middleware attributes must respect their declared targets', 'InvalidMiddlewareTarget', Error::class]
+	['Duplicate routes are rejected', 'ConflictDuplicate', LogicException::class, 'Conflicting GET routes'],
+	['Equivalent dynamic routes are rejected', 'ConflictDynamic', LogicException::class, 'Conflicting GET routes'],
+	['Overlapping dynamic route types are rejected', 'ConflictOverlappingDynamic', LogicException::class, 'Ambiguous GET routes'],
+	['Different dynamic structures that overlap are rejected', 'ConflictDifferentStructure', LogicException::class, 'Ambiguous GET routes'],
+	['Nested dynamic structures that overlap are rejected', 'ConflictNestedStructure', LogicException::class, 'Ambiguous GET routes'],
+	['Different structures with six constrained variables are rejected', 'ConflictManyVariables', LogicException::class, 'Ambiguous GET routes'],
+	['Overlapping Any routes are rejected', 'ConflictAnyDynamic', LogicException::class, 'Ambiguous Any routes'],
+	['Invalid HTTP method tokens are rejected', 'InvalidMethods', InvalidArgumentException::class, 'HTTP methods must be valid uppercase tokens'],
+	['Lowercase HTTP methods are rejected', 'InvalidMethodCase', InvalidArgumentException::class, 'must be uppercase; use "GET" instead'],
+	['Route paths must start with a slash', 'InvalidPath', InvalidArgumentException::class, 'must start with "/"'],
+	['Route paths must not end with a slash', 'InvalidTrailingSlash', InvalidArgumentException::class, 'must not end with "/"'],
+	['Multiple named classes in one controller file are rejected', 'MultipleClasses', LogicException::class, 'must declare at most one named class'],
+	['Classes loaded from a different file are rejected', 'ClassmapMismatch', LogicException::class, 'instead of scanned file'],
+	['Variables require a type', 'InvalidVariableMissingType', LogicException::class, 'Invalid variable declaration "{id}"'],
+	['Variable names must be valid', 'InvalidVariableName', LogicException::class, 'Invalid variable declaration "{1id:uint}"'],
+	['Variable names have a bounded length', 'InvalidVariableNameLength', LogicException::class, 'cannot exceed 32 characters'],
+	['Variable names must be unique', 'InvalidVariableDuplicate', LogicException::class, 'cannot reference variable name "id" more than once'],
+	['Variable types must be known', 'InvalidVariableType', LogicException::class, 'Unknown variable type "unknown"'],
+	['Variables must be closed', 'InvalidVariableUnclosed', LogicException::class, 'Unclosed variable in route pattern'],
+	['Closing braces must match variables', 'InvalidVariableClosingBrace', LogicException::class, 'Unexpected "}" in route pattern'],
+	['Route variables must match controller parameters', 'InvalidVariableParameter', LogicException::class, 'Route variable "id" has no matching parameter'],
+	['Required controller parameters must match route variables', 'MissingVariableParameter', LogicException::class, 'Required parameter "$id" of'],
+	['Controllers with routes must be instantiable', 'NonInstantiableController', LogicException::class, 'must be instantiable'],
+	['Controller constructors cannot require arguments', 'RequiredControllerConstructor', LogicException::class, 'constructor must not require arguments'],
+	['Controller actions cannot be static', 'StaticControllerAction', LogicException::class, '::action() must not be static'],
+	['Controller constructors cannot be actions', 'ConstructorControllerAction', LogicException::class, '::__construct() must not be a constructor or destructor'],
+	['Controller destructors cannot be actions', 'DestructorControllerAction', LogicException::class, '::__destruct() must not be a constructor or destructor'],
+	['Route parameters cannot be passed by reference', 'ReferenceRouteParameter', LogicException::class, 'must not be passed by reference'],
+	['Object-typed route parameters are rejected', 'IncompatibleNamedRouteParameter', LogicException::class, 'must be untyped, string, mixed'],
+	['Ambiguous scalar unions are rejected', 'AmbiguousUnionRouteParameter', LogicException::class, 'must be untyped, string, mixed'],
+	['Route variables cannot populate variadic parameters', 'VariadicRouteParameter', LogicException::class, 'cannot be populated by a route variable'],
+	['Middleware attributes require all constructor arguments', 'InvalidMiddlewareMissingArgument', ArgumentCountError::class, 'Argument #1 ($value) not passed'],
+	['Middleware attribute arguments must match constructor types', 'InvalidMiddlewareArgumentType', TypeError::class, 'Argument #1 ($value) must be of type int, string given'],
+	['Middleware attributes reject unknown named arguments', 'InvalidMiddlewareUnknownArgument', Error::class, 'Unknown named parameter $unknown'],
+	['Middleware attributes must respect their declared targets', 'InvalidMiddlewareTarget', Error::class, 'cannot target method'],
+	['Non-repeatable middleware attributes cannot be repeated', 'InvalidMiddlewareRepeated', Error::class, 'must not be repeated'],
+	['Middleware attributes without a constructor reject arguments', 'InvalidMiddlewareNoConstructor', Error::class, 'does not have a constructor, cannot pass arguments'],
+	['Middleware classes must be attributes', 'InvalidMiddlewareNotAttribute', Error::class, 'as attribute'],
+	['Named middleware arguments cannot overwrite positional ones', 'InvalidMiddlewareNamedOverwrite', Error::class, 'overwrites previous argument'],
+	['Middleware attributes that cannot be instantiated are rejected', 'InvalidMiddlewarePrivateConstructor', Error::class, 'Cannot instantiate middleware']
 ];
 
 $failures = 0;
@@ -178,17 +190,23 @@ foreach ($tests as $test) {
 	}
 }
 
-foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException]) {
+foreach ($compilationTests as [$name, $fixtureDirectory, $expectedException, $expectedMessage]) {
 	$assertions++;
 	$result = runCompilationCheck($fixtureDirectory);
-	if ($result['exitCode'] === 0 && $result['exception'] === $expectedException) {
+	// The message must be asserted too: most validations share LogicException, so a
+	// fixture could otherwise pass on an unrelated error.
+	if (
+		$result['exitCode'] === 0
+		&& $result['exception'] === $expectedException
+		&& str_contains((string) $result['message'], $expectedMessage)
+	) {
 		echo "PASS  {$name}\n";
 		continue;
 	}
 
 	$failures++;
 	echo "FAIL  {$name}\n";
-	echo '      expected ' . $expectedException . ', got ' . var_export($result, true) . "\n";
+	echo '      expected ' . $expectedException . ' containing ' . var_export($expectedMessage, true) . ', got ' . var_export($result, true) . "\n";
 }
 
 echo sprintf("\n%d tests, %d failures\n", $assertions, $failures);

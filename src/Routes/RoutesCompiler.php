@@ -161,7 +161,6 @@ class RoutesCompiler
 		$tokens = [];
 		$variables = [];
 		$pos = 0;
-		$defaultSeparator = '/';
 
 		preg_match_all('#\{([A-Za-z_][A-Za-z0-9_]*)\}#', $pattern, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
 		foreach ($matches as $match) {
@@ -183,34 +182,10 @@ class RoutesCompiler
 				$tokens[] = ['text', $precedingText];
 			}
 
-			$regexp = $varsRegex[$varName] ?? null;
-			if (null === $regexp) {
-				$followingPattern = (string) substr($pattern, $pos);
-				// Find the next static character after the variable that functions as a separator. By default, this separator and '/'
-				// are disallowed for the variable. This default requirement makes sure that optional variables can be matched at all
-				// and that the generating-matching-combination of URLs unambiguous, i.e. the params used for generating the URL are
-				// the same that will be matched. Example: new Route('/{page}.{_format}', ['_format' => 'html'])
-				// If {page} would also match the separating dot, {_format} would never match as {page} will eagerly consume everything.
-				// Also even if {_format} was not optional the requirement prevents that {page} matches something that was originally
-				// part of {_format} when generating the URL, e.g. _format = 'mobile.html'.
-				$nextSeparator = self::findNextSeparator($followingPattern);
-				$regexp = sprintf(
-					'[^%s%s]+',
-					preg_quote($defaultSeparator),
-					$defaultSeparator !== $nextSeparator && '' !== $nextSeparator ? preg_quote($nextSeparator) : ''
-				);
-				if (('' !== $nextSeparator && !preg_match('#^\{[\w\x80-\xFF]+\}#', $followingPattern)) || '' === $followingPattern) {
-					// When we have a separator, which is disallowed for the variable, we can optimize the regex with a possessive
-					// quantifier. This prevents useless backtracking of PCRE and improves performance by 20% for matching those patterns.
-					// Given the above example, there is no point in backtracking into {page} (that forbids the dot) when a dot must follow
-					// after it. This optimization cannot be applied when the next char is no real separator or when the next variable is
-					// directly adjacent, e.g. '/{x}{y}'.
-					$regexp .= '+';
-				}
-			}
-
+			// Every placeholder left in the normalized pattern was declared as
+			// "{name:type}" and resolved to a built-in expression by parseVariables().
 			// Built-in type expressions already contain only non-capturing groups.
-			$tokens[] = ['variable', $isSeparator ? $precedingChar : '', $regexp, $varName];
+			$tokens[] = ['variable', $isSeparator ? $precedingChar : '', $varsRegex[$varName], $varName];
 			$variables[] = $varName;
 		}
 
@@ -241,26 +216,6 @@ class RoutesCompiler
 		$prefix = $tokens[0][1];
 		if (isset($tokens[1][1]) && '/' !== $tokens[1][1]) $prefix .= $tokens[1][1];
 		return $prefix;
-	}
-
-	/**
-	 * Find next separator
-	 * @param string $pattern
-	 * @return string
-	 */
-	private static function findNextSeparator(string $pattern): string
-	{
-		if ('' == $pattern) {
-			// return empty string if pattern is empty or false (false which can be returned by substr)
-			return '';
-		}
-
-		// first remove all placeholders from the pattern so we can find the next real static character
-		if ('' === $pattern = preg_replace('#\{[\w\x80-\xFF]+\}#', '', $pattern)) {
-			return '';
-		}
-
-		return str_contains(static::SEPARATORS, $pattern[0]) ? $pattern[0] : '';
 	}
 
 	/**

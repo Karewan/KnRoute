@@ -69,6 +69,27 @@ namespace {
 	assertSame('/second', HttpUtils::getPath(), 'uncached path');
 	assertSame('second', HttpUtils::getHeader('X-Custom-Header'), 'uncached header');
 	assertSame('second', HttpUtils::getHeaders()['X-Custom-Header'] ?? null, 'normalized headers');
+
+	// Apache exposes headers of an internally redirected request with a REDIRECT_ prefix.
+	$_SERVER['REDIRECT_HTTP_X_REDIRECTED'] = 'rewritten';
+	assertSame('rewritten', HttpUtils::getHeader('X-Redirected'), 'internally redirected header');
+	assertSame('rewritten', HttpUtils::getHeaders()['X-Redirected'] ?? null, 'internally redirected header is listed');
+	$_SERVER['HTTP_X_REDIRECTED'] = 'original';
+	assertSame('original', HttpUtils::getHeader('X-Redirected'), 'the original header wins over its redirected copy');
+	assertSame('original', HttpUtils::getHeaders()['X-Redirected'] ?? null, 'the original header wins when listed');
+	unset($_SERVER['REDIRECT_HTTP_X_REDIRECTED'], $_SERVER['HTTP_X_REDIRECTED']);
+	assertSame('', HttpUtils::getHeader('X-Redirected'), 'absent header');
+	assertSame(false, HttpUtils::hasHeader('X-Redirected'), 'absent header is reported as missing');
+
+	// Content-Length and Content-Type are CGI variables rather than HTTP_ entries.
+	assertSame('', HttpUtils::getContentType(), 'missing content type');
+	$_SERVER['CONTENT_TYPE'] = 'application/json; charset=utf-8';
+	assertSame('application/json; charset=utf-8', HttpUtils::getContentType(), 'content type from the CGI variable');
+	assertSame('application/json; charset=utf-8', HttpUtils::getHeaders()['Content-Type'] ?? null, 'content type is listed');
+	unset($_SERVER['CONTENT_TYPE']);
+	$_SERVER['HTTP_CONTENT_TYPE'] = 'text/plain';
+	assertSame('text/plain', HttpUtils::getContentType(), 'content type from the request headers');
+	unset($_SERVER['HTTP_CONTENT_TYPE']);
 	assertSame('192.0.2.11', HttpUtils::getIp(), 'uncached remote address');
 	assertSame(null, HttpUtils::getServerPort(), 'missing server port');
 	assertSame(null, HttpUtils::getClientPort(), 'missing client port');
@@ -132,6 +153,14 @@ namespace {
 	}
 	$_SERVER['REQUEST_URI'] = '//admin';
 	assertSame('//admin', HttpUtils::getPath(), 'leading path slashes are preserved');
+	$_SERVER['REQUEST_URI'] = 'http://example.com/absolute/form/?query=1';
+	assertSame('/absolute/form', HttpUtils::getPath(), 'absolute-form request URI');
+	$_SERVER['REQUEST_URI'] = 'http://example.com';
+	assertSame('/', HttpUtils::getPath(), 'absolute-form request URI without a path');
+	$_SERVER['REQUEST_URI'] = 'http://[2001:db8::1]:8443/absolute/ipv6';
+	assertSame('/absolute/ipv6', HttpUtils::getPath(), 'absolute-form request URI with an IPv6 authority');
+	$_SERVER['REQUEST_URI'] = '*';
+	assertSame('*', HttpUtils::getPath(), 'asterisk-form request URI');
 	assertSame('', HttpUtils::getMethod(), 'missing request method');
 	assertSame('', HttpUtils::getProtocol(), 'missing server protocol');
 	assertSame('', HttpUtils::getQueryString(), 'missing query string');
