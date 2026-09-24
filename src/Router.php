@@ -245,11 +245,15 @@ class Router
 			$exception->getTitle(),
 			$exception->getDetail(),
 			$exception->getHeaders(),
+			$exception->getExtensions(),
 		);
 	}
 
-	/** @param array<string,string> $headers */
-	private function handleHttpError(int $code, ?string $title = null, ?string $detail = null, array $headers = []): void
+	/**
+	 * @param array<string,string> $headers
+	 * @param array<string,mixed> $extensions
+	 */
+	private function handleHttpError(int $code, ?string $title = null, ?string $detail = null, array $headers = [], array $extensions = []): void
 	{
 		$this->assertErrorStatusCode($code);
 		http_response_code($code);
@@ -263,6 +267,7 @@ class Router
 			$title ?? HttpStatus::getTitle($code),
 			$detail ?? HttpStatus::getDetail($code),
 			$headers,
+			$extensions,
 		));
 	}
 

@@ -405,6 +405,7 @@ $router->setDefaultErrorHandler(function (HttpError $error): void {
 		code: $error->code,
 		title: $error->title,
 		detail: $error->detail,
+		extensions: $error->extensions,
 	);
 });
 ```
@@ -443,6 +444,16 @@ throw new HttpException(
 	statusCode: 422,
 	detail: 'The submitted email address is invalid.',
 	title: 'Validation Failed',
+);
+```
+
+An `HttpException` can also carry custom members through `extensions`, such as a stable machine-readable error code that API clients can branch on instead of parsing the human-readable detail. They reach the handler unchanged in `HttpError::$extensions`, which is always empty for router-generated errors. The handler decides what to do with them; passing them to `HttpUtils::outputError()` appends them after the standard members:
+
+```php
+throw new HttpException(
+	statusCode: 409,
+	detail: 'The license is already used by another device.',
+	extensions: ['error' => 'license_used'],
 );
 ```
 

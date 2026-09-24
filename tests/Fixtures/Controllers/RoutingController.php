@@ -197,4 +197,10 @@ class RoutingController
 	{
 		throw new HttpException(422, 'The submitted value is invalid.', 'Validation Failed', ['X-Error' => 'validation']);
 	}
+
+	#[Get('/http-error-extensions')]
+	public function httpErrorExtensions(): void
+	{
+		throw new HttpException(409, extensions: ['error' => 'already_registered', 'registered_id' => 5, 'status' => 200]);
+	}
 }

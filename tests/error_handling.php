@@ -89,6 +89,21 @@ namespace {
 	assertSame('default:422:Validation Failed:The submitted value is invalid.', responseBody($router), 'HTTP exception uses configured handler');
 	assertSame('validation', ErrorResponseCapture::$headers['x-error'] ?? null, 'HTTP exception keeps custom headers');
 
+	$received = null;
+	$extensionsRouter = new Router();
+	$extensionsRouter->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', null);
+	$extensionsRouter->setDefaultErrorHandler(static function (HttpError $error) use (&$received): void {
+		$received = $error;
+	});
+
+	request($extensionsRouter, 'GET', '/http-error-extensions');
+	responseBody($extensionsRouter);
+	assertSame(['error' => 'already_registered', 'registered_id' => 5, 'status' => 200], $received?->extensions, 'HTTP exception passes its extensions to the handler');
+
+	request($extensionsRouter, 'GET', '/missing');
+	responseBody($extensionsRouter);
+	assertSame([], $received?->extensions, 'router errors have no extensions');
+
 	request($router, 'GET', '/custom-status');
 	assertSame('custom response', responseBody($router), 'direct status does not invoke error handlers');
 	assertSame(409, http_response_code(), 'direct status remains unchanged');
@@ -108,8 +123,20 @@ namespace {
 	$jsonRouter = new Router();
 	$jsonRouter->registerRoutesFromControllers(__DIR__ . '/Fixtures/Controllers', null);
 	$jsonRouter->setDefaultErrorHandler(static function (HttpError $error): void {
-		HttpUtils::outputError($error->code, $error->title, $error->detail);
+		HttpUtils::outputError($error->code, $error->title, $error->detail, $error->extensions);
 	});
+
+	request($jsonRouter, 'GET', '/http-error-extensions');
+	$body = responseBody($jsonRouter);
+	assertSame(409, http_response_code(), 'HTTP exception with extensions keeps its status');
+	assertSame([
+		'status' => 409,
+		'path' => '/http-error-extensions',
+		'title' => 'Conflict',
+		'detail' => 'The request conflicts with the current state of the resource.',
+		'error' => 'already_registered',
+		'registered_id' => 5,
+	], json_decode($body, true, flags: JSON_THROW_ON_ERROR), 'extensions follow the standard members and cannot overwrite them');
 
 	request($jsonRouter, 'GET', 'http://[');
 	$body = responseBody($jsonRouter);

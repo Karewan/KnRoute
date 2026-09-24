@@ -1,3 +1,8 @@
+v4.1.0 (2026-09-24)
+----------------------------
+### Added
+* **Error extensions:** `HttpException` accepts an `extensions` array of custom members, exposed by `getExtensions()` and passed to the error handler as `HttpError::$extensions`. It carries data such as a machine-readable error code from the action or middleware that raised the error to the renderer, which can forward it to `HttpUtils::outputError()`. Router-generated `404`, `405` and `501` errors have empty extensions. Both new parameters are appended with an empty default, so existing constructor calls, positional or named, are unchanged.
+
 v4.0.1 (2026-09-21)
 ----------------------------
 ### Added
